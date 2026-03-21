@@ -236,7 +236,25 @@
       }
 
       for (const p of planetData) planets.push(addPlanet(p));
-      for (const p of planets) p.mesh.userData.planet = p;
+      for (const p of planets) {
+        p.mesh.userData.planet = p;
+        const edges = new THREE.LineSegments(
+          new THREE.EdgesGeometry(p.mesh.geometry),
+          new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95 })
+        );
+        edges.visible = false;
+        p.mesh.add(edges);
+        p.mesh.userData.hoverOutline = edges;
+      }
+
+      const sunEdges = new THREE.LineSegments(
+        new THREE.EdgesGeometry(sun.geometry),
+        new THREE.LineBasicMaterial({ color: 0xfff1c9, transparent: true, opacity: 0.85 })
+      );
+      sunEdges.visible = false;
+      sun.add(sunEdges);
+      sun.userData.hoverOutline = sunEdges;
+
       sun.userData.planet = {
         name: 'Sun',
         radiusEarth: sunRadiusEarth,
@@ -288,18 +306,14 @@
       function setHover(obj) {
         if (hoveredObject === obj) return;
 
-        if (hoveredObject?.material) {
-          hoveredObject.material.emissiveIntensity = hoveredObject.userData.baseEmissiveIntensity ?? 0.08;
+        if (hoveredObject?.userData?.hoverOutline) {
+          hoveredObject.userData.hoverOutline.visible = false;
         }
 
         hoveredObject = obj || null;
 
-        if (hoveredObject?.material) {
-          if (hoveredObject.userData.baseEmissiveIntensity == null) {
-            hoveredObject.userData.baseEmissiveIntensity = hoveredObject.material.emissiveIntensity ?? 0;
-          }
-          hoveredObject.material.emissive = new THREE.Color(0xffffff);
-          hoveredObject.material.emissiveIntensity = 0.38;
+        if (hoveredObject?.userData?.hoverOutline) {
+          hoveredObject.userData.hoverOutline.visible = true;
         }
       }
 
@@ -349,6 +363,12 @@
           p.mesh.geometry.dispose();
           p.mesh.geometry = new THREE.SphereGeometry(newRadius, 36, 36);
 
+          if (p.mesh.userData.hoverOutline) {
+            p.mesh.userData.hoverOutline.geometry.dispose();
+            p.mesh.userData.hoverOutline.geometry = new THREE.EdgesGeometry(p.mesh.geometry);
+            p.mesh.userData.hoverOutline.visible = false;
+          }
+
           scene.remove(p.orbitPath);
           p.orbitPath.geometry.dispose();
           p.orbitPath.material.dispose();
@@ -387,6 +407,11 @@
         sunScaleVal.textContent = `${sunDisplayScale.toFixed(2)}x`;
         sun.geometry.dispose();
         sun.geometry = new THREE.SphereGeometry(sunRadiusEarth * SIZE_SCALE * sunDisplayScale, 64, 64);
+        if (sun.userData.hoverOutline) {
+          sun.userData.hoverOutline.geometry.dispose();
+          sun.userData.hoverOutline.geometry = new THREE.EdgesGeometry(sun.geometry);
+          sun.userData.hoverOutline.visible = false;
+        }
       });
 
       orbitToggle.addEventListener('change', (e) => {
