@@ -19,10 +19,42 @@
       #hud small { opacity: 0.75; display:block; margin-top: 8px; line-height: 1.35; }
       #legend { margin-top: 8px; font-size: 12px; opacity: .9; }
       #legend div { margin-top: 3px; }
+
+      #overlay {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 9;
+      }
+      .planet-label {
+        position: absolute;
+        transform: translate(-50%, -50%);
+        font-size: 11px;
+        color: #dfe7ff;
+        background: rgba(9, 14, 28, 0.72);
+        border: 1px solid rgba(255,255,255,0.18);
+        padding: 2px 6px;
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+      #planetPopup {
+        position: absolute;
+        transform: translate(-50%, -120%);
+        min-width: 180px;
+        max-width: 260px;
+        background: rgba(7, 11, 24, 0.9);
+        border: 1px solid rgba(255,255,255,0.25);
+        border-radius: 10px;
+        padding: 8px;
+        font-size: 12px;
+        color: #e9eeff;
+        display: none;
+      }
     </style>
   </head>
   <body>
     <div id="app"></div>
+    <div id="overlay"></div>
     <div id="hud">
       <h3>Solar System v1 (all planets)</h3>
       <label>Orbit speed <span id="speedVal">1.00x</span></label>
@@ -33,6 +65,9 @@
 
       <label>Planet visibility boost <span id="sizeBoostVal">2.0x</span></label>
       <input id="sizeBoost" type="range" min="1" max="6" step="0.1" value="2" />
+
+      <label>Sun display scale <span id="sunScaleVal">0.12x</span></label>
+      <input id="sunScale" type="range" min="0.05" max="0.5" step="0.01" value="0.12" />
 
       <div class="row" style="margin-top:8px;">
         <label style="margin:0;">Show orbit paths</label>
@@ -104,8 +139,9 @@
       }
 
       const sunRadiusEarth = 109.1;
+      let sunDisplayScale = 0.12; // visual compromise so inner planets remain visible
       const sun = new THREE.Mesh(
-        new THREE.SphereGeometry(sunRadiusEarth * SIZE_SCALE, 64, 64),
+        new THREE.SphereGeometry(sunRadiusEarth * SIZE_SCALE * sunDisplayScale, 64, 64),
         new THREE.MeshStandardMaterial({ emissive: 0xffb347, emissiveIntensity: 1.15, color: 0x5e3200 })
       );
       scene.add(sun);
@@ -164,6 +200,47 @@
       }
 
       for (const p of planetData) planets.push(addPlanet(p));
+      for (const p of planets) p.mesh.userData.planet = p;
+
+      const overlay = document.getElementById('overlay');
+      const labelEls = new Map();
+      for (const p of planets) {
+        const el = document.createElement('div');
+        el.className = 'planet-label';
+        el.textContent = p.name;
+        overlay.appendChild(el);
+        labelEls.set(p.name, el);
+      }
+
+      const popupEl = document.createElement('div');
+      popupEl.id = 'planetPopup';
+      overlay.appendChild(popupEl);
+
+      const raycaster = new THREE.Raycaster();
+      const pointer = new THREE.Vector2();
+      let selectedPlanet = null;
+
+      renderer.domElement.addEventListener('click', (event) => {
+        const rect = renderer.domElement.getBoundingClientRect();
+        pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(pointer, camera);
+        const hits = raycaster.intersectObjects(planets.map((p) => p.mesh));
+        if (!hits.length) {
+          selectedPlanet = null;
+          popupEl.style.display = 'none';
+          return;
+        }
+        selectedPlanet = hits[0].object.userData.planet || null;
+        if (!selectedPlanet) return;
+        popupEl.innerHTML = `
+          <strong>${selectedPlanet.name}</strong><br/>
+          Radius: ${selectedPlanet.radiusEarth.toFixed(3)} Earths<br/>
+          Orbit: ${selectedPlanet.au.toFixed(2)} AU<br/>
+          Year length: ${selectedPlanet.periodYears.toFixed(2)} Earth years
+        `;
+        popupEl.style.display = 'block';
+      });
 
       // Saturn rings
       const saturn = planets.find(p => p.name === 'Saturn');
@@ -183,6 +260,8 @@
       const distVal = document.getElementById('distVal');
       const sizeBoostInput = document.getElementById('sizeBoost');
       const sizeBoostVal = document.getElementById('sizeBoostVal');
+      const sunScaleInput = document.getElementById('sunScale');
+      const sunScaleVal = document.getElementById('sunScaleVal');
       const orbitToggle = document.getElementById('orbits');
 
       let speedMul = 1;
@@ -234,6 +313,13 @@
         rebuildPlanetVisuals();
       });
 
+      sunScaleInput.addEventListener('input', (e) => {
+        sunDisplayScale = Number(e.target.value);
+        sunScaleVal.textContent = `${sunDisplayScale.toFixed(2)}x`;
+        sun.geometry.dispose();
+        sun.geometry = new THREE.SphereGeometry(sunRadiusEarth * SIZE_SCALE * sunDisplayScale, 64, 64);
+      });
+
       orbitToggle.addEventListener('change', (e) => {
         const visible = e.target.checked;
         for (const p of planets) p.orbitPath.visible = visible;
@@ -248,6 +334,26 @@
         for (const p of planets) {
           p.group.rotation.y = t * p.orbitSpeed;
           p.mesh.rotation.y += Math.min(0.02, 0.005 + 0.01 / Math.max(1, p.radiusEarth));
+
+          const worldPos = new THREE.Vector3();
+          p.mesh.getWorldPosition(worldPos);
+          const projected = worldPos.clone().project(camera);
+          const x = (projected.x * 0.5 + 0.5) * window.innerWidth;
+          const y = (-projected.y * 0.5 + 0.5) * window.innerHeight;
+          const visible = projected.z < 1;
+
+          const lbl = labelEls.get(p.name);
+          if (lbl) {
+            lbl.style.display = visible ? 'block' : 'none';
+            lbl.style.left = `${x}px`;
+            lbl.style.top = `${y - (p.radius * 7 + 8)}px`;
+          }
+
+          if (selectedPlanet && selectedPlanet.name === p.name) {
+            popupEl.style.display = visible ? 'block' : 'none';
+            popupEl.style.left = `${x}px`;
+            popupEl.style.top = `${y - (p.radius * 7 + 28)}px`;
+          }
         }
 
         controls.update();
