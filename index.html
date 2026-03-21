@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Solar System Canvas (v0)</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #05070d; color: #e8ecff; font-family: Inter, system-ui, sans-serif; }
+      #app { position: fixed; inset: 0; }
+      #hud {
+        position: fixed; top: 12px; left: 12px; z-index: 10;
+        background: rgba(6, 10, 20, 0.72); border: 1px solid rgba(255,255,255,0.18);
+        border-radius: 10px; padding: 10px 12px; min-width: 220px; backdrop-filter: blur(6px);
+      }
+      #hud h3 { margin: 0 0 8px 0; font-size: 14px; }
+      #hud label { display: block; font-size: 12px; margin-top: 8px; opacity: .9; }
+      #hud input { width: 100%; }
+      #hud .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+      #hud small { opacity: 0.75; display:block; margin-top: 8px; }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="hud">
+      <h3>Solar System v0</h3>
+      <label>Orbit speed <span id="speedVal">1.00x</span></label>
+      <input id="speed" type="range" min="0" max="3" step="0.01" value="1" />
+      <div class="row" style="margin-top:8px;">
+        <label style="margin:0;">Show orbit paths</label>
+        <input id="orbits" type="checkbox" checked style="width:auto;" />
+      </div>
+      <small>Drag to rotate · scroll to zoom</small>
+    </div>
+
+    <script type="module">
+      import * as THREE from 'https://unpkg.com/three@0.161.0/build/three.module.js';
+      import { OrbitControls } from 'https://unpkg.com/three@0.161.0/examples/jsm/controls/OrbitControls.js';
+
+      const container = document.getElementById('app');
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x05070d);
+
+      const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+      camera.position.set(0, 35, 85);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      container.appendChild(renderer.domElement);
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.minDistance = 20;
+      controls.maxDistance = 300;
+
+      // Lights
+      scene.add(new THREE.AmbientLight(0x6677aa, 0.45));
+      const sunLight = new THREE.PointLight(0xffddaa, 2.2, 0, 2);
+      scene.add(sunLight);
+
+      // Stars backdrop
+      const starGeo = new THREE.BufferGeometry();
+      const starCount = 3000;
+      const positions = new Float32Array(starCount * 3);
+      for (let i = 0; i < starCount; i++) {
+        const r = 700;
+        positions[i * 3 + 0] = (Math.random() - 0.5) * r * 2;
+        positions[i * 3 + 1] = (Math.random() - 0.5) * r * 2;
+        positions[i * 3 + 2] = (Math.random() - 0.5) * r * 2;
+      }
+      starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.9 }));
+      scene.add(stars);
+
+      // Sun
+      const sun = new THREE.Mesh(
+        new THREE.SphereGeometry(8, 48, 48),
+        new THREE.MeshStandardMaterial({ emissive: 0xffb347, emissiveIntensity: 1.2, color: 0x553300 })
+      );
+      scene.add(sun);
+
+      function makePlanet({ radius, color, orbitRadius, orbitSpeed, y = 0 }) {
+        const group = new THREE.Group();
+        scene.add(group);
+
+        const mesh = new THREE.Mesh(
+          new THREE.SphereGeometry(radius, 32, 32),
+          new THREE.MeshStandardMaterial({ color })
+        );
+        mesh.position.set(orbitRadius, y, 0);
+        group.add(mesh);
+
+        const orbitPath = new THREE.LineLoop(
+          new THREE.BufferGeometry().setFromPoints(
+            Array.from({ length: 128 }, (_, i) => {
+              const a = (i / 128) * Math.PI * 2;
+              return new THREE.Vector3(Math.cos(a) * orbitRadius, y, Math.sin(a) * orbitRadius);
+            })
+          ),
+          new THREE.LineBasicMaterial({ color: 0x31486f })
+        );
+        scene.add(orbitPath);
+
+        return { group, mesh, orbitPath, orbitSpeed };
+      }
+
+      const earth = makePlanet({ radius: 2.8, color: 0x4b78ff, orbitRadius: 24, orbitSpeed: 0.75 });
+      const mars = makePlanet({ radius: 2.2, color: 0xc86b4f, orbitRadius: 34, orbitSpeed: 0.55 });
+      const jupiter = makePlanet({ radius: 5.2, color: 0xd7b38c, orbitRadius: 52, orbitSpeed: 0.32 });
+
+      const speedInput = document.getElementById('speed');
+      const speedVal = document.getElementById('speedVal');
+      const orbitToggle = document.getElementById('orbits');
+
+      let speedMul = 1;
+      speedInput.addEventListener('input', (e) => {
+        speedMul = Number(e.target.value);
+        speedVal.textContent = `${speedMul.toFixed(2)}x`;
+      });
+      orbitToggle.addEventListener('change', (e) => {
+        const visible = e.target.checked;
+        earth.orbitPath.visible = visible;
+        mars.orbitPath.visible = visible;
+        jupiter.orbitPath.visible = visible;
+      });
+
+      const clock = new THREE.Clock();
+      function animate() {
+        const t = clock.getElapsedTime() * speedMul;
+
+        sun.rotation.y += 0.0025;
+
+        earth.group.rotation.y = t * earth.orbitSpeed;
+        earth.mesh.rotation.y += 0.01;
+
+        mars.group.rotation.y = t * mars.orbitSpeed;
+        mars.mesh.rotation.y += 0.008;
+
+        jupiter.group.rotation.y = t * jupiter.orbitSpeed;
+        jupiter.mesh.rotation.y += 0.02;
+
+        controls.update();
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+      }
+      animate();
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    </script>
+  </body>
+</html>
