@@ -181,6 +181,21 @@
         return au * AU_BASE * distanceCompression;
       }
 
+      function getSunRenderRadius() {
+        return sunRadiusEarth * SIZE_SCALE * sunDisplayScale;
+      }
+
+      function computeOrbitLayout(planetsArr) {
+        // Keep true relative order, but enforce non-overlap with Sun + neighbor spacing.
+        let prevEdge = getSunRenderRadius() + 8;
+        for (const p of planetsArr) {
+          const raw = scaledOrbit(p.au);
+          const minCenter = prevEdge + p.radius + 6;
+          p.orbitRadius = Math.max(raw, minCenter);
+          prevEdge = p.orbitRadius + p.radius;
+        }
+      }
+
       const sunRadiusEarth = 109.1;
       let sunDisplayScale = 0.12; // visual compromise so inner planets remain visible
       const sun = new THREE.Mesh(
@@ -470,9 +485,6 @@
 
       function rebuildPlanetVisuals() {
         for (const p of planets) {
-          p.orbitRadius = scaledOrbit(p.au);
-          p.mesh.position.set(p.orbitRadius, 0, 0);
-
           const newRadius = computeRadius(p);
           p.radius = newRadius;
           p.mesh.geometry.dispose();
@@ -483,6 +495,12 @@
             p.mesh.userData.hoverOutline.geometry = new THREE.EdgesGeometry(p.mesh.geometry);
             p.mesh.userData.hoverOutline.visible = false;
           }
+        }
+
+        computeOrbitLayout(planets);
+
+        for (const p of planets) {
+          p.mesh.position.set(p.orbitRadius, 0, 0);
 
           scene.remove(p.orbitPath);
           p.orbitPath.geometry.dispose();
@@ -532,6 +550,7 @@
         if (sunTrueScaleInput.checked) return;
         sunDisplayScale = Number(e.target.value);
         rebuildSunGeometry();
+        rebuildPlanetVisuals();
       });
 
       sunTrueScaleInput.addEventListener('change', (e) => {
@@ -544,6 +563,7 @@
           sunDisplayScale = Number(sunScaleInput.value);
         }
         rebuildSunGeometry();
+        rebuildPlanetVisuals();
       });
 
       orbitToggle.addEventListener('change', (e) => {
@@ -565,6 +585,7 @@
       });
 
       applyQualityPreset('auto');
+      rebuildPlanetVisuals();
       updateDetails();
 
       const clock = new THREE.Clock();
