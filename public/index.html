@@ -84,6 +84,31 @@
         <div><strong>Size ratios:</strong> accurate (Earth=1 baseline)</div>
         <div><strong>Distances:</strong> compressed for visibility</div>
       </div>
+
+      <label>Render quality</label>
+      <select id="quality" style="width:100%; margin-top:4px;">
+        <option value="auto" selected>Auto</option>
+        <option value="low">Low</option>
+        <option value="medium">Medium</option>
+        <option value="high">High</option>
+        <option value="ultra">Ultra</option>
+      </select>
+
+      <label>Units</label>
+      <select id="units" style="width:100%; margin-top:4px;">
+        <option value="astronomy" selected>Astronomy (AU + Earth radii)</option>
+        <option value="metric">Metric (km)</option>
+      </select>
+
+      <div class="row" style="margin-top:8px; gap:6px;">
+        <button id="focusBtn" style="flex:1;">Focus selected</button>
+        <button id="homeBtn" style="flex:1;">Home camera</button>
+      </div>
+
+      <div id="details" style="margin-top:8px; font-size:12px; border:1px solid rgba(255,255,255,.16); border-radius:8px; padding:8px; background:rgba(10,14,28,.7);">
+        <strong>Selection</strong><br/>Click a planet label to inspect details.
+      </div>
+
       <small>Drag to rotate · scroll to zoom · right-drag to pan</small>
     </div>
 
@@ -116,6 +141,10 @@
       controls.minDistance = 60;
       controls.maxDistance = 8000;
 
+      const HOME_CAMERA_POS = new THREE.Vector3(0, 220, 520);
+      const HOME_TARGET = new THREE.Vector3(0, 0, 0);
+      controls.target.copy(HOME_TARGET);
+
       scene.add(new THREE.AmbientLight(0x6677aa, 0.36));
       const sunLight = new THREE.PointLight(0xffddaa, 2.0, 0, 2);
       scene.add(sunLight);
@@ -131,7 +160,9 @@
         positions[i * 3 + 2] = (Math.random() - 0.5) * r * 2;
       }
       starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-      scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 1.1 })));
+      const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 1.1, transparent: true, opacity: 0.95 });
+      const stars = new THREE.Points(starGeo, starMaterial);
+      scene.add(stars);
 
       // Real size ratios relative to Earth radius = 1
       // Distances are in AU from Sun and compressed for usability.
@@ -290,6 +321,8 @@
           `;
           popupEl.style.display = 'block';
           setHover(p.mesh);
+          updateDetails();
+          focusOnPlanet(p);
         });
 
         overlay.appendChild(el);
@@ -302,6 +335,12 @@
 
       let selectedPlanet = null;
       let hoveredObject = null;
+      let focusTargetPlanet = null;
+      let focusStrength = 0;
+
+      const EARTH_RADIUS_KM = 6371;
+      const AU_KM = 149597870.7;
+      const detailsEl = document.getElementById('details');
 
       function setHover(obj) {
         if (hoveredObject === obj) return;
@@ -317,11 +356,56 @@
         }
       }
 
+      function updateDetails() {
+        if (!selectedPlanet) {
+          detailsEl.innerHTML = `<strong>Selection</strong><br/>Click a planet label to inspect details.`;
+          return;
+        }
+
+        const units = document.getElementById('units').value;
+        if (units === 'metric') {
+          detailsEl.innerHTML = `
+            <strong>${selectedPlanet.name}</strong><br/>
+            Radius: ${(selectedPlanet.radiusEarth * EARTH_RADIUS_KM).toLocaleString(undefined, { maximumFractionDigits: 0 })} km<br/>
+            Orbit distance: ${(selectedPlanet.au * AU_KM).toLocaleString(undefined, { maximumFractionDigits: 0 })} km<br/>
+            Orbital period: ${selectedPlanet.periodYears.toFixed(2)} Earth years
+          `;
+        } else {
+          detailsEl.innerHTML = `
+            <strong>${selectedPlanet.name}</strong><br/>
+            Radius: ${selectedPlanet.radiusEarth.toFixed(3)} Earth radii<br/>
+            Orbit distance: ${selectedPlanet.au.toFixed(2)} AU<br/>
+            Orbital period: ${selectedPlanet.periodYears.toFixed(2)} Earth years
+          `;
+        }
+      }
+
+      function focusOnPlanet(planet) {
+        if (!planet) return;
+        focusTargetPlanet = planet;
+        focusStrength = 1;
+      }
+
+      function goHome() {
+        focusTargetPlanet = { mesh: { getWorldPosition: (v) => v.copy(HOME_TARGET) }, radius: 40 };
+        focusStrength = 1;
+      }
+
+      function applyQualityPreset(level) {
+        const dprMap = { low: 1.0, medium: 1.3, high: 1.8, ultra: 2.2 };
+        const starMap = { low: 0.65, medium: 0.9, high: 1.1, ultra: 1.3 };
+        const dpr = level === 'auto' ? Math.min(window.devicePixelRatio, 2) : dprMap[level] ?? 1.3;
+        renderer.setPixelRatio(Math.min(dpr, 2.5));
+        starMaterial.size = starMap[level] ?? 1.1;
+        starMaterial.needsUpdate = true;
+      }
+
       // Hover/selection is now controlled from nameplates.
       renderer.domElement.addEventListener('click', () => {
         selectedPlanet = null;
         popupEl.style.display = 'none';
         setHover(null);
+        updateDetails();
         for (const el of labelEls.values()) el.classList.remove('hovered');
       });
 
@@ -346,6 +430,10 @@
       const sunScaleInput = document.getElementById('sunScale');
       const sunScaleVal = document.getElementById('sunScaleVal');
       const orbitToggle = document.getElementById('orbits');
+      const qualitySelect = document.getElementById('quality');
+      const unitsSelect = document.getElementById('units');
+      const focusBtn = document.getElementById('focusBtn');
+      const homeBtn = document.getElementById('homeBtn');
 
       let speedMul = 1;
       speedInput.addEventListener('input', (e) => {
@@ -419,6 +507,22 @@
         for (const p of planets) p.orbitPath.visible = visible;
       });
 
+      qualitySelect.addEventListener('change', (e) => applyQualityPreset(e.target.value));
+      unitsSelect.addEventListener('change', () => updateDetails());
+      focusBtn.addEventListener('click', () => {
+        if (selectedPlanet) focusOnPlanet(selectedPlanet);
+      });
+      homeBtn.addEventListener('click', () => {
+        selectedPlanet = null;
+        popupEl.style.display = 'none';
+        setHover(null);
+        updateDetails();
+        goHome();
+      });
+
+      applyQualityPreset('auto');
+      updateDetails();
+
       const clock = new THREE.Clock();
       function animate() {
         const t = clock.getElapsedTime() * speedMul * 0.25;
@@ -451,6 +555,19 @@
             popupEl.style.left = `${x}px`;
             popupEl.style.top = `${y - 26}px`;
           }
+        }
+
+        if (focusTargetPlanet && focusStrength > 0.0001) {
+          const wp = new THREE.Vector3();
+          focusTargetPlanet.mesh.getWorldPosition(wp);
+          const dir = camera.position.clone().sub(controls.target).normalize();
+          const desiredDist = Math.max(30, (focusTargetPlanet.radius || 2) * 12);
+          const desiredTarget = wp;
+          const desiredPos = wp.clone().add(dir.multiplyScalar(desiredDist)).add(new THREE.Vector3(0, (focusTargetPlanet.radius || 2) * 1.8, 0));
+
+          controls.target.lerp(desiredTarget, 0.08);
+          camera.position.lerp(desiredPos, 0.08);
+          focusStrength *= 0.92;
         }
 
         controls.update();
