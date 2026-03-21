@@ -109,9 +109,6 @@
       const renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.outputColorSpace = THREE.SRGBColorSpace;
-      renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.15;
       container.appendChild(renderer.domElement);
 
       const controls = new OrbitControls(camera, renderer.domElement);
@@ -119,37 +116,22 @@
       controls.minDistance = 60;
       controls.maxDistance = 8000;
 
-      scene.add(new THREE.AmbientLight(0x4f5f8f, 0.28));
-      const hemi = new THREE.HemisphereLight(0x7a8cc8, 0x161822, 0.25);
-      scene.add(hemi);
-      const sunLight = new THREE.PointLight(0xffd49a, 2.6, 0, 2);
+      scene.add(new THREE.AmbientLight(0x6677aa, 0.36));
+      const sunLight = new THREE.PointLight(0xffddaa, 2.0, 0, 2);
       scene.add(sunLight);
 
       // Stars
       const starGeo = new THREE.BufferGeometry();
-      const starCount = 9000;
+      const starCount = 6000;
       const positions = new Float32Array(starCount * 3);
-      const colors = new Float32Array(starCount * 3);
       for (let i = 0; i < starCount; i++) {
         const r = 5000;
         positions[i * 3 + 0] = (Math.random() - 0.5) * r * 2;
         positions[i * 3 + 1] = (Math.random() - 0.5) * r * 2;
         positions[i * 3 + 2] = (Math.random() - 0.5) * r * 2;
-
-        const temp = Math.random();
-        const c = temp > 0.92 ? new THREE.Color(0xbcd3ff) : temp < 0.08 ? new THREE.Color(0xffe1bd) : new THREE.Color(0xffffff);
-        colors[i * 3 + 0] = c.r;
-        colors[i * 3 + 1] = c.g;
-        colors[i * 3 + 2] = c.b;
       }
       starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-      starGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-      scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 1.05, vertexColors: true, transparent: true, opacity: 0.95 })));
-
-      // subtle nebula haze spheres
-      const hazeMat = new THREE.MeshBasicMaterial({ color: 0x233a6f, transparent: true, opacity: 0.05, side: THREE.BackSide });
-      const haze = new THREE.Mesh(new THREE.SphereGeometry(4200, 32, 32), hazeMat);
-      scene.add(haze);
+      scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 1.1 })));
 
       // Real size ratios relative to Earth radius = 1
       // Distances are in AU from Sun and compressed for usability.
@@ -166,15 +148,9 @@
       let sunDisplayScale = 0.12; // visual compromise so inner planets remain visible
       const sun = new THREE.Mesh(
         new THREE.SphereGeometry(sunRadiusEarth * SIZE_SCALE * sunDisplayScale, 64, 64),
-        new THREE.MeshStandardMaterial({ emissive: 0xffb347, emissiveIntensity: 1.35, color: 0x7c3f00, roughness: 0.35, metalness: 0.0 })
+        new THREE.MeshStandardMaterial({ emissive: 0xffb347, emissiveIntensity: 1.15, color: 0x5e3200 })
       );
       scene.add(sun);
-
-      const sunHalo = new THREE.Mesh(
-        new THREE.SphereGeometry(sunRadiusEarth * SIZE_SCALE * sunDisplayScale * 1.22, 48, 48),
-        new THREE.MeshBasicMaterial({ color: 0xffb347, transparent: true, opacity: 0.17 })
-      );
-      scene.add(sunHalo);
 
       let sizeBoost = 2.0;
 
@@ -199,7 +175,7 @@
               return new THREE.Vector3(Math.cos(a) * radius, 0, Math.sin(a) * radius);
             })
           ),
-          new THREE.LineBasicMaterial({ color: 0x4c6da0, transparent: true, opacity: 0.45 })
+          new THREE.LineBasicMaterial({ color: 0x31486f, transparent: true, opacity: 0.75 })
         );
       }
 
@@ -214,7 +190,7 @@
         const radius = computeRadius(p);
         const mesh = new THREE.Mesh(
           new THREE.SphereGeometry(radius, 36, 36),
-          new THREE.MeshStandardMaterial({ color: p.color, emissive: p.color, emissiveIntensity: 0.08, roughness: 0.9, metalness: 0.02 })
+          new THREE.MeshStandardMaterial({ color: p.color, emissive: p.color, emissiveIntensity: 0.08 })
         );
         const orbitRadius = scaledOrbit(p.au);
         mesh.position.set(orbitRadius, 0, 0);
@@ -381,8 +357,6 @@
         sunScaleVal.textContent = `${sunDisplayScale.toFixed(2)}x`;
         sun.geometry.dispose();
         sun.geometry = new THREE.SphereGeometry(sunRadiusEarth * SIZE_SCALE * sunDisplayScale, 64, 64);
-        sunHalo.geometry.dispose();
-        sunHalo.geometry = new THREE.SphereGeometry(sunRadiusEarth * SIZE_SCALE * sunDisplayScale * 1.22, 48, 48);
       });
 
       orbitToggle.addEventListener('change', (e) => {
@@ -395,7 +369,6 @@
         const t = clock.getElapsedTime() * speedMul * 0.25;
 
         sun.rotation.y += 0.0018;
-        sunHalo.scale.setScalar(1 + Math.sin(t * 1.7) * 0.01);
 
         for (const p of planets) {
           p.group.rotation.y = t * p.orbitSpeed;
