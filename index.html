@@ -154,15 +154,27 @@
 
       let sizeBoost = 2.0;
 
+      const TEX = {
+        mercury: 'https://threejs.org/examples/textures/planets/mercury.jpg',
+        venus: 'https://threejs.org/examples/textures/planets/venus.jpg',
+        earth: 'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg',
+        mars: 'https://threejs.org/examples/textures/planets/mars_1k_color.jpg',
+        jupiter: 'https://threejs.org/examples/textures/planets/jupiter.jpg',
+        saturn: 'https://threejs.org/examples/textures/planets/saturn.jpg',
+        uranus: 'https://threejs.org/examples/textures/planets/uranus.jpg',
+        neptune: 'https://threejs.org/examples/textures/planets/neptune.jpg'
+      };
+      const textureLoader = new THREE.TextureLoader();
+
       const planetData = [
-        { name: 'Mercury', radiusEarth: 0.383, au: 0.39, periodYears: 0.24, color: 0x8c8c8c },
-        { name: 'Venus',   radiusEarth: 0.949, au: 0.72, periodYears: 0.62, color: 0xc7a46d },
-        { name: 'Earth',   radiusEarth: 1.000, au: 1.00, periodYears: 1.00, color: 0x4b78ff },
-        { name: 'Mars',    radiusEarth: 0.532, au: 1.52, periodYears: 1.88, color: 0xc86b4f },
-        { name: 'Jupiter', radiusEarth: 11.21, au: 5.20, periodYears: 11.86, color: 0xd7b38c },
-        { name: 'Saturn',  radiusEarth: 9.45,  au: 9.58, periodYears: 29.46, color: 0xd8c28f },
-        { name: 'Uranus',  radiusEarth: 4.01,  au: 19.2, periodYears: 84.01, color: 0x88d3dd },
-        { name: 'Neptune', radiusEarth: 3.88,  au: 30.05, periodYears: 164.8, color: 0x4a7df6 }
+        { name: 'Mercury', radiusEarth: 0.383, au: 0.39, periodYears: 0.24, color: 0x8c8c8c, texture: TEX.mercury },
+        { name: 'Venus',   radiusEarth: 0.949, au: 0.72, periodYears: 0.62, color: 0xc7a46d, texture: TEX.venus },
+        { name: 'Earth',   radiusEarth: 1.000, au: 1.00, periodYears: 1.00, color: 0x4b78ff, texture: TEX.earth },
+        { name: 'Mars',    radiusEarth: 0.532, au: 1.52, periodYears: 1.88, color: 0xc86b4f, texture: TEX.mars },
+        { name: 'Jupiter', radiusEarth: 11.21, au: 5.20, periodYears: 11.86, color: 0xd7b38c, texture: TEX.jupiter },
+        { name: 'Saturn',  radiusEarth: 9.45,  au: 9.58, periodYears: 29.46, color: 0xd8c28f, texture: TEX.saturn },
+        { name: 'Uranus',  radiusEarth: 4.01,  au: 19.2, periodYears: 84.01, color: 0x88d3dd, texture: TEX.uranus },
+        { name: 'Neptune', radiusEarth: 3.88,  au: 30.05, periodYears: 164.8, color: 0x4a7df6, texture: TEX.neptune }
       ];
 
       const planets = [];
@@ -188,9 +200,23 @@
         scene.add(group);
 
         const radius = computeRadius(p);
+        const mat = new THREE.MeshStandardMaterial({ color: p.color, emissive: p.color, emissiveIntensity: 0.05, roughness: 0.88, metalness: 0.02 });
+        if (p.texture) {
+          textureLoader.load(
+            p.texture,
+            (tex) => {
+              tex.colorSpace = THREE.SRGBColorSpace;
+              mat.map = tex;
+              mat.needsUpdate = true;
+            },
+            undefined,
+            () => {}
+          );
+        }
+
         const mesh = new THREE.Mesh(
           new THREE.SphereGeometry(radius, 36, 36),
-          new THREE.MeshStandardMaterial({ color: p.color, emissive: p.color, emissiveIntensity: 0.08 })
+          mat
         );
         const orbitRadius = scaledOrbit(p.au);
         mesh.position.set(orbitRadius, 0, 0);
