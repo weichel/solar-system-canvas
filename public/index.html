@@ -3,442 +3,233 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Solar System Canvas (v1)</title>
+    <title>Galactic Trail v0</title>
     <style>
-      html, body { margin: 0; height: 100%; background: #05070d; color: #e8ecff; font-family: Inter, system-ui, sans-serif; }
-      #app { position: fixed; inset: 0; }
-      #hud {
-        position: fixed; top: 12px; left: 12px; z-index: 10;
-        background: rgba(6, 10, 20, 0.78); border: 1px solid rgba(255,255,255,0.18);
-        border-radius: 10px; padding: 10px 12px; min-width: 280px; backdrop-filter: blur(6px);
-      }
-      #hud h3 { margin: 0 0 8px 0; font-size: 14px; }
-      #hud label { display: block; font-size: 12px; margin-top: 8px; opacity: .9; }
-      #hud input { width: 100%; }
-      #hud .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-      #hud small { opacity: 0.75; display:block; margin-top: 8px; line-height: 1.35; }
-      #legend { margin-top: 8px; font-size: 12px; opacity: .9; }
-      #legend div { margin-top: 3px; }
-
-      #overlay {
-        position: fixed;
-        inset: 0;
-        pointer-events: none;
-        z-index: 9;
-      }
-      .planet-label {
-        position: absolute;
-        transform: translate(-50%, -50%);
-        font-size: 11px;
-        color: #dfe7ff;
-        background: rgba(9, 14, 28, 0.72);
-        border: 1px solid rgba(255,255,255,0.18);
-        padding: 2px 6px;
-        border-radius: 999px;
-        white-space: nowrap;
-        pointer-events: auto;
-        cursor: pointer;
-      }
-      .planet-label.hovered {
-        border-color: rgba(255,255,255,0.85);
-        background: rgba(20, 30, 54, 0.9);
-      }
-      #planetPopup {
-        position: absolute;
-        transform: translate(-50%, -120%);
-        min-width: 180px;
-        max-width: 260px;
-        background: rgba(7, 11, 24, 0.9);
-        border: 1px solid rgba(255,255,255,0.25);
-        border-radius: 10px;
-        padding: 8px;
-        font-size: 12px;
-        color: #e9eeff;
-        display: none;
-      }
+      html, body { margin:0; height:100%; background:#04060e; color:#eaf0ff; font-family: Inter, system-ui, sans-serif; }
+      #app { display:grid; grid-template-columns: 1fr 340px; height:100%; }
+      #scene { position:relative; overflow:hidden; background: radial-gradient(circle at 30% 20%, #1a2452 0%, #070b1b 45%, #03050d 100%); }
+      #hud { border-left:1px solid rgba(255,255,255,.12); padding:12px; background:rgba(8,12,24,.85); overflow:auto; }
+      h2,h3 { margin:6px 0; }
+      .stats { display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:13px; }
+      .card { border:1px solid rgba(255,255,255,.15); border-radius:10px; padding:8px; background:rgba(14,20,36,.7); }
+      .bar { height:8px; border-radius:999px; background:#1a2238; overflow:hidden; margin-top:4px; }
+      .fill { height:100%; }
+      .btns { display:grid; gap:8px; margin-top:10px; }
+      button { border:1px solid rgba(255,255,255,.2); background:#111a34; color:#eaf0ff; border-radius:8px; padding:8px 10px; cursor:pointer; }
+      button:hover { background:#172246; }
+      #log { font-size:12px; line-height:1.35; max-height:260px; overflow:auto; white-space:pre-wrap; }
+      .node { position:absolute; width:12px; height:12px; border-radius:50%; transform:translate(-50%,-50%); box-shadow:0 0 10px currentColor; }
+      .node.current { width:16px; height:16px; border:2px solid #fff; }
+      .path { position:absolute; height:2px; background:rgba(133,173,255,.5); transform-origin:left center; }
+      .label { position:absolute; transform:translate(-50%, -130%); font-size:11px; opacity:.85; pointer-events:none; }
+      #banner { margin:8px 0; font-size:13px; color:#9bc2ff; }
+      @media (max-width: 900px) { #app { grid-template-columns: 1fr; } #hud { border-left:none; border-top:1px solid rgba(255,255,255,.12);} }
     </style>
   </head>
   <body>
-    <div id="app"></div>
-    <div id="overlay"></div>
-    <div id="hud">
-      <h3>Solar System v1 (all planets)</h3>
-      <label>Orbit speed <span id="speedVal">1.00x</span></label>
-      <input id="speed" type="range" min="0" max="4" step="0.01" value="1" />
+    <div id="app">
+      <div id="scene"></div>
+      <div id="hud">
+        <h2>Galactic Trail v0</h2>
+        <div id="banner">Navigate cosmic epochs. Survive. Learn.</div>
 
-      <label>Distance compression <span id="distVal">0.30</span></label>
-      <input id="dist" type="range" min="0.2" max="1" step="0.01" value="0.30" />
+        <div class="card" style="margin-bottom:8px;">
+          <strong>Epoch</strong>
+          <div id="epochText">—</div>
+          <div style="font-size:12px;opacity:.8;" id="epochSub">—</div>
+        </div>
 
-      <label>Planet visibility boost <span id="sizeBoostVal">2.0x</span></label>
-      <input id="sizeBoost" type="range" min="1" max="6" step="0.1" value="2" />
+        <div class="stats">
+          <div class="card">Fuel<div class="bar"><div id="fuelBar" class="fill" style="background:#6fb5ff"></div></div><div id="fuelVal"></div></div>
+          <div class="card">Integrity<div class="bar"><div id="intBar" class="fill" style="background:#72e39e"></div></div><div id="intVal"></div></div>
+          <div class="card">Morale<div class="bar"><div id="morBar" class="fill" style="background:#ffd166"></div></div><div id="morVal"></div></div>
+          <div class="card">Data<div class="bar"><div id="datBar" class="fill" style="background:#c792ff"></div></div><div id="datVal"></div></div>
+        </div>
 
-      <label>Sun display scale <span id="sunScaleVal">0.12x</span></label>
-      <input id="sunScale" type="range" min="0.05" max="0.5" step="0.01" value="0.12" />
+        <div class="btns">
+          <button id="jumpBtn">Jump to next galaxy node</button>
+          <button id="scanBtn">Scan local region (+data, -fuel)</button>
+          <button id="repairBtn">Repair hull (+integrity, -fuel, -morale)</button>
+          <button id="resetBtn">Reset run</button>
+        </div>
 
-      <div class="row" style="margin-top:8px;">
-        <label style="margin:0;">Show orbit paths</label>
-        <input id="orbits" type="checkbox" checked style="width:auto;" />
+        <h3>Mission Log</h3>
+        <div id="log" class="card"></div>
       </div>
-
-      <div id="legend">
-        <div><strong>Size ratios:</strong> accurate (Earth=1 baseline)</div>
-        <div><strong>Distances:</strong> compressed for visibility</div>
-      </div>
-      <small>Drag to rotate · scroll to zoom · right-drag to pan</small>
     </div>
 
-    <script type="importmap">
-      {
-        "imports": {
-          "three": "https://unpkg.com/three@0.161.0/build/three.module.js"
-        }
-      }
-    </script>
-
-    <script type="module">
-      import * as THREE from 'three';
-      import { OrbitControls } from 'https://unpkg.com/three@0.161.0/examples/jsm/controls/OrbitControls.js';
-
-      const container = document.getElementById('app');
-      const scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x05070d);
-
-      const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 12000);
-      camera.position.set(0, 220, 520);
-
-      const renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      container.appendChild(renderer.domElement);
-
-      const controls = new OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true;
-      controls.minDistance = 60;
-      controls.maxDistance = 8000;
-
-      scene.add(new THREE.AmbientLight(0x6677aa, 0.36));
-      const sunLight = new THREE.PointLight(0xffddaa, 2.0, 0, 2);
-      scene.add(sunLight);
-
-      // Stars
-      const starGeo = new THREE.BufferGeometry();
-      const starCount = 6000;
-      const positions = new Float32Array(starCount * 3);
-      for (let i = 0; i < starCount; i++) {
-        const r = 5000;
-        positions[i * 3 + 0] = (Math.random() - 0.5) * r * 2;
-        positions[i * 3 + 1] = (Math.random() - 0.5) * r * 2;
-        positions[i * 3 + 2] = (Math.random() - 0.5) * r * 2;
-      }
-      starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-      scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 1.1 })));
-
-      // Real size ratios relative to Earth radius = 1
-      // Distances are in AU from Sun and compressed for usability.
-      const EARTH_RENDER_RADIUS = 1.5;
-      const SIZE_SCALE = EARTH_RENDER_RADIUS;
-      const AU_BASE = 220; // visual AU baseline before compression
-
-      let distanceCompression = 0.30;
-      function scaledOrbit(au) {
-        return au * AU_BASE * distanceCompression;
-      }
-
-      const sunRadiusEarth = 109.1;
-      let sunDisplayScale = 0.12; // visual compromise so inner planets remain visible
-      const sun = new THREE.Mesh(
-        new THREE.SphereGeometry(sunRadiusEarth * SIZE_SCALE * sunDisplayScale, 64, 64),
-        new THREE.MeshStandardMaterial({ emissive: 0xffb347, emissiveIntensity: 1.15, color: 0x5e3200 })
-      );
-      scene.add(sun);
-
-      let sizeBoost = 2.0;
-
-      const TEX = {
-        mercury: '/textures/mercury.jpg',
-        venus: '/textures/venus.jpg',
-        earth: '/textures/earth.jpg',
-        mars: '/textures/mars.jpg',
-        jupiter: '/textures/jupiter.jpg',
-        saturn: '/textures/saturn.jpg',
-        uranus: '/textures/uranus.jpg',
-        neptune: '/textures/neptune.jpg'
-      };
-      const textureLoader = new THREE.TextureLoader();
-
-      const planetData = [
-        { name: 'Mercury', radiusEarth: 0.383, au: 0.39, periodYears: 0.24, color: 0x8c8c8c, texture: TEX.mercury },
-        { name: 'Venus',   radiusEarth: 0.949, au: 0.72, periodYears: 0.62, color: 0xc7a46d, texture: TEX.venus },
-        { name: 'Earth',   radiusEarth: 1.000, au: 1.00, periodYears: 1.00, color: 0x4b78ff, texture: TEX.earth },
-        { name: 'Mars',    radiusEarth: 0.532, au: 1.52, periodYears: 1.88, color: 0xc86b4f, texture: TEX.mars },
-        { name: 'Jupiter', radiusEarth: 11.21, au: 5.20, periodYears: 11.86, color: 0xd7b38c, texture: TEX.jupiter },
-        { name: 'Saturn',  radiusEarth: 9.45,  au: 9.58, periodYears: 29.46, color: 0xd8c28f, texture: TEX.saturn },
-        { name: 'Uranus',  radiusEarth: 4.01,  au: 19.2, periodYears: 84.01, color: 0x88d3dd, texture: TEX.uranus },
-        { name: 'Neptune', radiusEarth: 3.88,  au: 30.05, periodYears: 164.8, color: 0x4a7df6, texture: TEX.neptune }
+    <script>
+      const epochs = [
+        { name: 'Cosmic Dawn', z: 'z~20', blurb: 'First stars ignite. Heavy elements are rare.' },
+        { name: 'Galaxy Assembly', z: 'z~6', blurb: 'Protogalaxies merge into larger structures.' },
+        { name: 'Peak Star Formation', z: 'z~2', blurb: 'The universe is bright and violently creative.' },
+        { name: 'Modern Universe', z: 'z~0', blurb: 'Mature galaxies, rich chemistry, complex systems.' },
+        { name: 'Far Future (Speculative)', z: 'z<0', blurb: 'Starbirth fades; long-term survival dominates.' },
       ];
 
-      const planets = [];
+      let state;
+      const scene = document.getElementById('scene');
+      const logEl = document.getElementById('log');
 
-      function createOrbitPath(radius) {
-        return new THREE.LineLoop(
-          new THREE.BufferGeometry().setFromPoints(
-            Array.from({ length: 256 }, (_, i) => {
-              const a = (i / 256) * Math.PI * 2;
-              return new THREE.Vector3(Math.cos(a) * radius, 0, Math.sin(a) * radius);
-            })
-          ),
-          new THREE.LineBasicMaterial({ color: 0x31486f, transparent: true, opacity: 0.75 })
-        );
+      function rand(min, max){ return Math.random() * (max-min)+min; }
+      function rint(min, max){ return Math.floor(rand(min, max+1)); }
+      function clamp(v, lo, hi){ return Math.max(lo, Math.min(hi, v)); }
+
+      function makeNodes(){
+        const w = scene.clientWidth || window.innerWidth;
+        const h = scene.clientHeight || window.innerHeight;
+        const nodes = [];
+        for(let i=0;i<epochs.length;i++){
+          nodes.push({
+            x: (w * 0.12) + (i * (w * 0.18)) + rand(-30,30),
+            y: h*0.25 + rand(-60,60),
+            epoch:i,
+            name: `Node ${i+1}`,
+          });
+        }
+        return nodes;
       }
 
-      function computeRadius(p) {
-        return Math.max(0.45, p.radiusEarth * SIZE_SCALE * sizeBoost);
+      function log(msg){
+        const ts = new Date().toLocaleTimeString();
+        logEl.textContent = `[${ts}] ${msg}\n` + logEl.textContent;
       }
 
-      function addPlanet(p) {
-        const group = new THREE.Group();
-        scene.add(group);
+      function renderScene(){
+        scene.innerHTML = '';
 
-        const radius = computeRadius(p);
-        const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.88, metalness: 0.02 });
-        if (p.texture) {
-          textureLoader.load(
-            p.texture,
-            (tex) => {
-              tex.colorSpace = THREE.SRGBColorSpace;
-              mat.map = tex;
-              mat.needsUpdate = true;
-            },
-            undefined,
-            () => {
-              // fallback to solid color if texture fetch fails
-              mat.color.setHex(p.color);
-              mat.needsUpdate = true;
-            }
-          );
+        // stars
+        for(let i=0;i<220;i++){
+          const s = document.createElement('div');
+          s.style.position='absolute';
+          s.style.left = `${Math.random()*100}%`;
+          s.style.top = `${Math.random()*100}%`;
+          const sz = Math.random()<0.9 ? 1 : 2;
+          s.style.width = `${sz}px`; s.style.height=`${sz}px`;
+          s.style.borderRadius='50%'; s.style.background='rgba(255,255,255,.85)';
+          scene.appendChild(s);
         }
 
-        const mesh = new THREE.Mesh(
-          new THREE.SphereGeometry(radius, 36, 36),
-          mat
-        );
-        const orbitRadius = scaledOrbit(p.au);
-        mesh.position.set(orbitRadius, 0, 0);
-        group.add(mesh);
+        // paths
+        for(let i=0;i<state.nodes.length-1;i++){
+          const a=state.nodes[i], b=state.nodes[i+1];
+          const dx=b.x-a.x, dy=b.y-a.y;
+          const len=Math.hypot(dx,dy);
+          const ang=Math.atan2(dy,dx)*180/Math.PI;
+          const p=document.createElement('div');
+          p.className='path';
+          p.style.left=`${a.x}px`; p.style.top=`${a.y}px`;
+          p.style.width=`${len}px`; p.style.transform=`rotate(${ang}deg)`;
+          scene.appendChild(p);
+        }
 
-        const orbitPath = createOrbitPath(orbitRadius);
-        scene.add(orbitPath);
+        state.nodes.forEach((n, idx)=>{
+          const node=document.createElement('div');
+          node.className='node' + (idx===state.pos ? ' current' : '');
+          node.style.left=`${n.x}px`; node.style.top=`${n.y}px`;
+          node.style.color = idx < state.pos ? '#72e39e' : '#7da6ff';
+          node.style.background = idx===state.pos ? '#9dc2ff' : '#6c89d4';
+          scene.appendChild(node);
 
-        // Relative orbital angular speed (faster for shorter periods)
-        const orbitSpeed = 1 / p.periodYears;
-
-        return { ...p, group, mesh, orbitPath, orbitRadius, orbitSpeed, radius };
+          const lbl=document.createElement('div');
+          lbl.className='label';
+          lbl.style.left=`${n.x}px`; lbl.style.top=`${n.y}px`;
+          lbl.textContent = epochs[n.epoch].name;
+          scene.appendChild(lbl);
+        });
       }
 
-      for (const p of planetData) planets.push(addPlanet(p));
-      for (const p of planets) p.mesh.userData.planet = p;
-      sun.userData.planet = {
-        name: 'Sun',
-        radiusEarth: sunRadiusEarth,
-        au: 0,
-        periodYears: 0,
-        mesh: sun,
-        radius: sunRadiusEarth * SIZE_SCALE * sunDisplayScale,
-      };
+      function updateHUD(){
+        const epoch = epochs[state.pos];
+        document.getElementById('epochText').textContent = `${epoch.name} (${epoch.z})`;
+        document.getElementById('epochSub').textContent = epoch.blurb;
 
-      const overlay = document.getElementById('overlay');
-      const labelEls = new Map();
-      for (const p of planets) {
-        const el = document.createElement('div');
-        el.className = 'planet-label';
-        el.textContent = p.name;
-        el.dataset.planetName = p.name;
-
-        el.addEventListener('mouseenter', () => {
-          el.classList.add('hovered');
-          setHover(p.mesh);
-        });
-        el.addEventListener('mouseleave', () => {
-          el.classList.remove('hovered');
-          setHover(null);
-        });
-        el.addEventListener('click', () => {
-          selectedPlanet = p;
-          popupEl.innerHTML = `
-            <strong>${p.name}</strong><br/>
-            Radius: ${p.radiusEarth.toFixed(3)} Earths<br/>
-            Orbit: ${p.au.toFixed(2)} AU<br/>
-            Year length: ${p.periodYears.toFixed(2)} Earth years
-          `;
-          popupEl.style.display = 'block';
-          setHover(p.mesh);
+        const bars = [
+          ['fuel', '#fuelBar', '#fuelVal'],
+          ['integrity', '#intBar', '#intVal'],
+          ['morale', '#morBar', '#morVal'],
+          ['data', '#datBar', '#datVal'],
+        ];
+        bars.forEach(([k,b,v])=>{
+          const val = Math.round(state[k]);
+          document.querySelector(b).style.width = `${val}%`;
+          document.querySelector(v).textContent = `${val}/100`;
         });
 
-        overlay.appendChild(el);
-        labelEls.set(p.name, el);
-      }
+        const dead = state.fuel<=0 || state.integrity<=0 || state.morale<=0;
+        document.getElementById('jumpBtn').disabled = dead || state.pos>=epochs.length-1;
+        document.getElementById('scanBtn').disabled = dead;
+        document.getElementById('repairBtn').disabled = dead;
 
-      const popupEl = document.createElement('div');
-      popupEl.id = 'planetPopup';
-      overlay.appendChild(popupEl);
-
-      let selectedPlanet = null;
-      let hoveredObject = null;
-
-      function setHover(obj) {
-        if (hoveredObject === obj) return;
-
-        if (hoveredObject?.material) {
-          hoveredObject.material.emissiveIntensity = hoveredObject.userData.baseEmissiveIntensity ?? 0.08;
-        }
-
-        hoveredObject = obj || null;
-
-        if (hoveredObject?.material) {
-          if (hoveredObject.userData.baseEmissiveIntensity == null) {
-            hoveredObject.userData.baseEmissiveIntensity = hoveredObject.material.emissiveIntensity ?? 0;
-          }
-          hoveredObject.material.emissive = new THREE.Color(0xffffff);
-          hoveredObject.material.emissiveIntensity = 0.38;
+        if(dead) log('Mission failed: your expedition collapsed. Reset to try again.');
+        if(state.pos>=epochs.length-1 && !state.won){
+          state.won=true;
+          log(`Mission complete. You crossed cosmic history with ${Math.round(state.data)} data integrity.`);
         }
       }
 
-      // Hover/selection is now controlled from nameplates.
-      renderer.domElement.addEventListener('click', () => {
-        selectedPlanet = null;
-        popupEl.style.display = 'none';
-        setHover(null);
-        for (const el of labelEls.values()) el.classList.remove('hovered');
-      });
-
-      // Saturn rings
-      const saturn = planets.find(p => p.name === 'Saturn');
-      if (saturn) {
-        const ring = new THREE.Mesh(
-          new THREE.RingGeometry(saturn.radius * 1.4, saturn.radius * 2.2, 64),
-          new THREE.MeshBasicMaterial({ color: 0xbca36d, side: THREE.DoubleSide, transparent: true, opacity: 0.75 })
-        );
-        ring.rotation.x = -Math.PI / 2.4;
-        saturn.mesh.add(ring);
+      function cosmicEvent(){
+        const roll = Math.random();
+        if(roll < 0.22){
+          const d=rint(6,16); state.integrity-=d; log(`Encounter: micrometeoroid swarm. Integrity -${d}.`);
+        } else if(roll < 0.44){
+          const d=rint(5,14); state.morale-=d; log(`Encounter: prolonged dark transit. Morale -${d}.`);
+        } else if(roll < 0.66){
+          const d=rint(8,18); state.data+=d; log(`Discovery: gravitational lensing anomaly. Data +${d}.`);
+        } else if(roll < 0.84){
+          const d=rint(6,14); state.fuel+=d; log(`Lucky break: recoverable propellant depot. Fuel +${d}.`);
+        } else {
+          const d=rint(6,16); state.fuel-=d; log(`Hazard: evasive burn against debris field. Fuel -${d}.`);
+        }
+        state.fuel=clamp(state.fuel,0,100);
+        state.integrity=clamp(state.integrity,0,100);
+        state.morale=clamp(state.morale,0,100);
+        state.data=clamp(state.data,0,100);
       }
 
-      // UI
-      const speedInput = document.getElementById('speed');
-      const speedVal = document.getElementById('speedVal');
-      const distInput = document.getElementById('dist');
-      const distVal = document.getElementById('distVal');
-      const sizeBoostInput = document.getElementById('sizeBoost');
-      const sizeBoostVal = document.getElementById('sizeBoostVal');
-      const sunScaleInput = document.getElementById('sunScale');
-      const sunScaleVal = document.getElementById('sunScaleVal');
-      const orbitToggle = document.getElementById('orbits');
-
-      let speedMul = 1;
-      speedInput.addEventListener('input', (e) => {
-        speedMul = Number(e.target.value);
-        speedVal.textContent = `${speedMul.toFixed(2)}x`;
-      });
-
-      function rebuildPlanetVisuals() {
-        for (const p of planets) {
-          p.orbitRadius = scaledOrbit(p.au);
-          p.mesh.position.set(p.orbitRadius, 0, 0);
-
-          const newRadius = computeRadius(p);
-          p.radius = newRadius;
-          p.mesh.geometry.dispose();
-          p.mesh.geometry = new THREE.SphereGeometry(newRadius, 36, 36);
-
-          scene.remove(p.orbitPath);
-          p.orbitPath.geometry.dispose();
-          p.orbitPath.material.dispose();
-          p.orbitPath = createOrbitPath(p.orbitRadius);
-          p.orbitPath.visible = orbitToggle.checked;
-          scene.add(p.orbitPath);
-        }
-
-        const sat = planets.find(p => p.name === 'Saturn');
-        if (sat) {
-          const oldRing = sat.mesh.children.find(c => c.type === 'Mesh');
-          if (oldRing) sat.mesh.remove(oldRing);
-          const ring = new THREE.Mesh(
-            new THREE.RingGeometry(sat.radius * 1.4, sat.radius * 2.2, 64),
-            new THREE.MeshBasicMaterial({ color: 0xbca36d, side: THREE.DoubleSide, transparent: true, opacity: 0.75 })
-          );
-          ring.rotation.x = -Math.PI / 2.4;
-          sat.mesh.add(ring);
-        }
+      function jump(){
+        if(state.pos>=epochs.length-1) return;
+        const cost=rint(8,15);
+        state.fuel-=cost;
+        state.pos+=1;
+        log(`Jump executed to ${epochs[state.pos].name}. Fuel -${cost}.`);
+        cosmicEvent();
+        renderScene();
+        updateHUD();
       }
 
-      distInput.addEventListener('input', (e) => {
-        distanceCompression = Number(e.target.value);
-        distVal.textContent = distanceCompression.toFixed(2);
-        rebuildPlanetVisuals();
-      });
-
-      sizeBoostInput.addEventListener('input', (e) => {
-        sizeBoost = Number(e.target.value);
-        sizeBoostVal.textContent = `${sizeBoost.toFixed(1)}x`;
-        rebuildPlanetVisuals();
-      });
-
-      sunScaleInput.addEventListener('input', (e) => {
-        sunDisplayScale = Number(e.target.value);
-        sunScaleVal.textContent = `${sunDisplayScale.toFixed(2)}x`;
-        sun.geometry.dispose();
-        sun.geometry = new THREE.SphereGeometry(sunRadiusEarth * SIZE_SCALE * sunDisplayScale, 64, 64);
-      });
-
-      orbitToggle.addEventListener('change', (e) => {
-        const visible = e.target.checked;
-        for (const p of planets) p.orbitPath.visible = visible;
-      });
-
-      const clock = new THREE.Clock();
-      function animate() {
-        const t = clock.getElapsedTime() * speedMul * 0.25;
-
-        sun.rotation.y += 0.0018;
-
-        for (const p of planets) {
-          p.group.rotation.y = t * p.orbitSpeed;
-          p.mesh.rotation.y += Math.min(0.02, 0.005 + 0.01 / Math.max(1, p.radiusEarth));
-
-          const worldPos = new THREE.Vector3();
-          p.mesh.getWorldPosition(worldPos);
-
-          // Place label above planet in world space (Y-up axis), then project to screen.
-          const labelWorldPos = worldPos.clone().add(new THREE.Vector3(0, Math.max(1.2, p.radius * 1.6), 0));
-          const projected = labelWorldPos.clone().project(camera);
-          const x = (projected.x * 0.5 + 0.5) * window.innerWidth;
-          const y = (-projected.y * 0.5 + 0.5) * window.innerHeight;
-          const visible = projected.z < 1;
-
-          const lbl = labelEls.get(p.name);
-          if (lbl) {
-            lbl.style.display = visible ? 'block' : 'none';
-            lbl.style.left = `${x}px`;
-            lbl.style.top = `${y}px`;
-          }
-
-          if (selectedPlanet && selectedPlanet.name === p.name) {
-            popupEl.style.display = visible ? 'block' : 'none';
-            popupEl.style.left = `${x}px`;
-            popupEl.style.top = `${y - 26}px`;
-          }
-        }
-
-        controls.update();
-        renderer.render(scene, camera);
-        requestAnimationFrame(animate);
+      function scan(){
+        const fuel=rint(4,9), gain=rint(7,15);
+        state.fuel-=fuel; state.data+=gain;
+        log(`Deep scan complete. Data +${gain}, Fuel -${fuel}.`);
+        if(Math.random()<0.35){ const m=rint(3,8); state.morale+=m; log(`Crew inspired by findings. Morale +${m}.`); }
+        state.fuel=clamp(state.fuel,0,100); state.data=clamp(state.data,0,100); state.morale=clamp(state.morale,0,100);
+        updateHUD();
       }
-      animate();
 
-      window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-      });
+      function repair(){
+        const fuel=rint(6,12), heal=rint(8,18), morale=rint(3,8);
+        state.fuel-=fuel; state.integrity+=heal; state.morale-=morale;
+        log(`Repairs complete. Integrity +${heal}, Fuel -${fuel}, Morale -${morale}.`);
+        state.fuel=clamp(state.fuel,0,100); state.integrity=clamp(state.integrity,0,100); state.morale=clamp(state.morale,0,100);
+        updateHUD();
+      }
+
+      function reset(){
+        state={ fuel:84, integrity:82, morale:78, data:20, pos:0, nodes:makeNodes(), won:false };
+        logEl.textContent='';
+        log('New run initialized. Welcome, captain.');
+        renderScene();
+        updateHUD();
+      }
+
+      document.getElementById('jumpBtn').onclick=jump;
+      document.getElementById('scanBtn').onclick=scan;
+      document.getElementById('repairBtn').onclick=repair;
+      document.getElementById('resetBtn').onclick=reset;
+      window.addEventListener('resize', ()=>{ state.nodes=makeNodes(); renderScene(); });
+
+      reset();
     </script>
   </body>
 </html>
