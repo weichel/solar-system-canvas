@@ -109,7 +109,7 @@
         <strong>Selection</strong><br/>Click a planet label to inspect details.
       </div>
 
-      <small>Drag to rotate · scroll to zoom · right-drag to pan · WASD to move · Space = home</small>
+      <small>Right-drag to rotate · left-drag to pan · scroll to zoom · WASD to move · Space = home</small>
     </div>
 
     <script type="importmap">
@@ -140,6 +140,8 @@
       controls.enableDamping = true;
       controls.minDistance = 60;
       controls.maxDistance = 8000;
+      controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
+      controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
 
       const HOME_CAMERA_POS = new THREE.Vector3(0, 220, 520);
       const HOME_TARGET = new THREE.Vector3(0, 0, 0);
