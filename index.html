@@ -155,14 +155,14 @@
       let sizeBoost = 2.0;
 
       const TEX = {
-        mercury: 'https://threejs.org/examples/textures/planets/mercury.jpg',
-        venus: 'https://threejs.org/examples/textures/planets/venus.jpg',
-        earth: 'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg',
-        mars: 'https://threejs.org/examples/textures/planets/mars_1k_color.jpg',
-        jupiter: 'https://threejs.org/examples/textures/planets/jupiter.jpg',
-        saturn: 'https://threejs.org/examples/textures/planets/saturn.jpg',
-        uranus: 'https://threejs.org/examples/textures/planets/uranus.jpg',
-        neptune: 'https://threejs.org/examples/textures/planets/neptune.jpg'
+        mercury: 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/mercury.jpg',
+        venus: 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/venus.jpg',
+        earth: 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_atmos_2048.jpg',
+        mars: 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/mars_1k_color.jpg',
+        jupiter: 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/jupiter.jpg',
+        saturn: 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/saturn.jpg',
+        uranus: 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/uranus.jpg',
+        neptune: 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/neptune.jpg'
       };
       const textureLoader = new THREE.TextureLoader();
 
@@ -200,7 +200,7 @@
         scene.add(group);
 
         const radius = computeRadius(p);
-        const mat = new THREE.MeshStandardMaterial({ color: p.color, emissive: p.color, emissiveIntensity: 0.05, roughness: 0.88, metalness: 0.02 });
+        const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.88, metalness: 0.02 });
         if (p.texture) {
           textureLoader.load(
             p.texture,
@@ -210,7 +210,11 @@
               mat.needsUpdate = true;
             },
             undefined,
-            () => {}
+            () => {
+              // fallback to solid color if texture fetch fails
+              mat.color.setHex(p.color);
+              mat.needsUpdate = true;
+            }
           );
         }
 
