@@ -376,7 +376,10 @@
 
           const worldPos = new THREE.Vector3();
           p.mesh.getWorldPosition(worldPos);
-          const projected = worldPos.clone().project(camera);
+
+          // Place label above planet in world space (Y-up axis), then project to screen.
+          const labelWorldPos = worldPos.clone().add(new THREE.Vector3(0, Math.max(1.2, p.radius * 1.6), 0));
+          const projected = labelWorldPos.clone().project(camera);
           const x = (projected.x * 0.5 + 0.5) * window.innerWidth;
           const y = (-projected.y * 0.5 + 0.5) * window.innerHeight;
           const visible = projected.z < 1;
