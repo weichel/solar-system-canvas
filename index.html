@@ -36,6 +36,12 @@
         padding: 2px 6px;
         border-radius: 999px;
         white-space: nowrap;
+        pointer-events: auto;
+        cursor: pointer;
+      }
+      .planet-label.hovered {
+        border-color: rgba(255,255,255,0.85);
+        background: rgba(20, 30, 54, 0.9);
       }
       #planetPopup {
         position: absolute;
@@ -216,6 +222,28 @@
         const el = document.createElement('div');
         el.className = 'planet-label';
         el.textContent = p.name;
+        el.dataset.planetName = p.name;
+
+        el.addEventListener('mouseenter', () => {
+          el.classList.add('hovered');
+          setHover(p.mesh);
+        });
+        el.addEventListener('mouseleave', () => {
+          el.classList.remove('hovered');
+          if (!selectedPlanet || selectedPlanet.name !== p.name) setHover(null);
+        });
+        el.addEventListener('click', () => {
+          selectedPlanet = p;
+          popupEl.innerHTML = `
+            <strong>${p.name}</strong><br/>
+            Radius: ${p.radiusEarth.toFixed(3)} Earths<br/>
+            Orbit: ${p.au.toFixed(2)} AU<br/>
+            Year length: ${p.periodYears.toFixed(2)} Earth years
+          `;
+          popupEl.style.display = 'block';
+          setHover(p.mesh);
+        });
+
         overlay.appendChild(el);
         labelEls.set(p.name, el);
       }
@@ -224,8 +252,6 @@
       popupEl.id = 'planetPopup';
       overlay.appendChild(popupEl);
 
-      const raycaster = new THREE.Raycaster();
-      const pointer = new THREE.Vector2();
       let selectedPlanet = null;
       let hoveredObject = null;
 
@@ -247,37 +273,12 @@
         }
       }
 
-      renderer.domElement.addEventListener('mousemove', (event) => {
-        const rect = renderer.domElement.getBoundingClientRect();
-        pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-        raycaster.setFromCamera(pointer, camera);
-        const hits = raycaster.intersectObjects([sun, ...planets.map((p) => p.mesh)]);
-        setHover(hits.length ? hits[0].object : null);
-      });
-
-      renderer.domElement.addEventListener('mouseleave', () => setHover(null));
-
-      renderer.domElement.addEventListener('click', (event) => {
-        const rect = renderer.domElement.getBoundingClientRect();
-        pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-        raycaster.setFromCamera(pointer, camera);
-        const hits = raycaster.intersectObjects([sun, ...planets.map((p) => p.mesh)]);
-        if (!hits.length) {
-          selectedPlanet = null;
-          popupEl.style.display = 'none';
-          return;
-        }
-        selectedPlanet = hits[0].object.userData.planet || null;
-        if (!selectedPlanet) return;
-        popupEl.innerHTML = `
-          <strong>${selectedPlanet.name}</strong><br/>
-          Radius: ${selectedPlanet.radiusEarth.toFixed(3)} Earths<br/>
-          Orbit: ${selectedPlanet.au.toFixed(2)} AU<br/>
-          Year length: ${selectedPlanet.periodYears.toFixed(2)} Earth years
-        `;
-        popupEl.style.display = 'block';
+      // Hover/selection is now controlled from nameplates.
+      renderer.domElement.addEventListener('click', () => {
+        selectedPlanet = null;
+        popupEl.style.display = 'none';
+        setHover(null);
+        for (const el of labelEls.values()) el.classList.remove('hovered');
       });
 
       // Saturn rings
@@ -384,13 +385,13 @@
           if (lbl) {
             lbl.style.display = visible ? 'block' : 'none';
             lbl.style.left = `${x}px`;
-            lbl.style.top = `${y - (p.radius * 7 + 8)}px`;
+            lbl.style.top = `${y}px`;
           }
 
           if (selectedPlanet && selectedPlanet.name === p.name) {
             popupEl.style.display = visible ? 'block' : 'none';
             popupEl.style.left = `${x}px`;
-            popupEl.style.top = `${y - (p.radius * 7 + 28)}px`;
+            popupEl.style.top = `${y - 26}px`;
           }
         }
 
