@@ -201,6 +201,14 @@
 
       for (const p of planetData) planets.push(addPlanet(p));
       for (const p of planets) p.mesh.userData.planet = p;
+      sun.userData.planet = {
+        name: 'Sun',
+        radiusEarth: sunRadiusEarth,
+        au: 0,
+        periodYears: 0,
+        mesh: sun,
+        radius: sunRadiusEarth * SIZE_SCALE * sunDisplayScale,
+      };
 
       const overlay = document.getElementById('overlay');
       const labelEls = new Map();
@@ -219,13 +227,43 @@
       const raycaster = new THREE.Raycaster();
       const pointer = new THREE.Vector2();
       let selectedPlanet = null;
+      let hoveredObject = null;
+
+      function setHover(obj) {
+        if (hoveredObject === obj) return;
+
+        if (hoveredObject?.material) {
+          hoveredObject.material.emissiveIntensity = hoveredObject.userData.baseEmissiveIntensity ?? 0.08;
+        }
+
+        hoveredObject = obj || null;
+
+        if (hoveredObject?.material) {
+          if (hoveredObject.userData.baseEmissiveIntensity == null) {
+            hoveredObject.userData.baseEmissiveIntensity = hoveredObject.material.emissiveIntensity ?? 0;
+          }
+          hoveredObject.material.emissive = new THREE.Color(0xffffff);
+          hoveredObject.material.emissiveIntensity = 0.38;
+        }
+      }
+
+      renderer.domElement.addEventListener('mousemove', (event) => {
+        const rect = renderer.domElement.getBoundingClientRect();
+        pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(pointer, camera);
+        const hits = raycaster.intersectObjects([sun, ...planets.map((p) => p.mesh)]);
+        setHover(hits.length ? hits[0].object : null);
+      });
+
+      renderer.domElement.addEventListener('mouseleave', () => setHover(null));
 
       renderer.domElement.addEventListener('click', (event) => {
         const rect = renderer.domElement.getBoundingClientRect();
         pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
         pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
         raycaster.setFromCamera(pointer, camera);
-        const hits = raycaster.intersectObjects(planets.map((p) => p.mesh));
+        const hits = raycaster.intersectObjects([sun, ...planets.map((p) => p.mesh)]);
         if (!hits.length) {
           selectedPlanet = null;
           popupEl.style.display = 'none';
