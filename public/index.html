@@ -73,7 +73,11 @@
       <input id="sizeBoost" type="range" min="1" max="6" step="0.1" value="2" />
 
       <label>Sun display scale <span id="sunScaleVal">0.12x</span></label>
-      <input id="sunScale" type="range" min="0.05" max="0.5" step="0.01" value="0.12" />
+      <input id="sunScale" type="range" min="0.05" max="1" step="0.01" value="0.12" />
+      <div class="row" style="margin-top:6px;">
+        <label style="margin:0;">True Sun scale</label>
+        <input id="sunTrueScale" type="checkbox" style="width:auto;" />
+      </div>
 
       <div class="row" style="margin-top:8px;">
         <label style="margin:0;">Show orbit paths</label>
@@ -451,6 +455,7 @@
       const sizeBoostVal = document.getElementById('sizeBoostVal');
       const sunScaleInput = document.getElementById('sunScale');
       const sunScaleVal = document.getElementById('sunScaleVal');
+      const sunTrueScaleInput = document.getElementById('sunTrueScale');
       const orbitToggle = document.getElementById('orbits');
       const qualitySelect = document.getElementById('quality');
       const unitsSelect = document.getElementById('units');
@@ -512,8 +517,7 @@
         rebuildPlanetVisuals();
       });
 
-      sunScaleInput.addEventListener('input', (e) => {
-        sunDisplayScale = Number(e.target.value);
+      function rebuildSunGeometry() {
         sunScaleVal.textContent = `${sunDisplayScale.toFixed(2)}x`;
         sun.geometry.dispose();
         sun.geometry = new THREE.SphereGeometry(sunRadiusEarth * SIZE_SCALE * sunDisplayScale, 64, 64);
@@ -522,6 +526,24 @@
           sun.userData.hoverOutline.geometry = new THREE.EdgesGeometry(sun.geometry);
           sun.userData.hoverOutline.visible = false;
         }
+      }
+
+      sunScaleInput.addEventListener('input', (e) => {
+        if (sunTrueScaleInput.checked) return;
+        sunDisplayScale = Number(e.target.value);
+        rebuildSunGeometry();
+      });
+
+      sunTrueScaleInput.addEventListener('change', (e) => {
+        if (e.target.checked) {
+          sunDisplayScale = 1;
+          sunScaleInput.value = '1';
+          sunScaleInput.disabled = true;
+        } else {
+          sunScaleInput.disabled = false;
+          sunDisplayScale = Number(sunScaleInput.value);
+        }
+        rebuildSunGeometry();
       });
 
       orbitToggle.addEventListener('change', (e) => {
