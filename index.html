@@ -31,6 +31,9 @@
       <label>Distance compression <span id="distVal">0.30</span></label>
       <input id="dist" type="range" min="0.2" max="1" step="0.01" value="0.30" />
 
+      <label>Planet visibility boost <span id="sizeBoostVal">2.0x</span></label>
+      <input id="sizeBoost" type="range" min="1" max="6" step="0.1" value="2" />
+
       <div class="row" style="margin-top:8px;">
         <label style="margin:0;">Show orbit paths</label>
         <input id="orbits" type="checkbox" checked style="width:auto;" />
@@ -107,6 +110,8 @@
       );
       scene.add(sun);
 
+      let sizeBoost = 2.0;
+
       const planetData = [
         { name: 'Mercury', radiusEarth: 0.383, au: 0.39, periodYears: 0.24, color: 0x8c8c8c },
         { name: 'Venus',   radiusEarth: 0.949, au: 0.72, periodYears: 0.62, color: 0xc7a46d },
@@ -132,14 +137,18 @@
         );
       }
 
+      function computeRadius(p) {
+        return Math.max(0.45, p.radiusEarth * SIZE_SCALE * sizeBoost);
+      }
+
       function addPlanet(p) {
         const group = new THREE.Group();
         scene.add(group);
 
-        const radius = Math.max(0.35, p.radiusEarth * SIZE_SCALE);
+        const radius = computeRadius(p);
         const mesh = new THREE.Mesh(
           new THREE.SphereGeometry(radius, 36, 36),
-          new THREE.MeshStandardMaterial({ color: p.color })
+          new THREE.MeshStandardMaterial({ color: p.color, emissive: p.color, emissiveIntensity: 0.08 })
         );
         const orbitRadius = scaledOrbit(p.au);
         mesh.position.set(orbitRadius, 0, 0);
@@ -172,6 +181,8 @@
       const speedVal = document.getElementById('speedVal');
       const distInput = document.getElementById('dist');
       const distVal = document.getElementById('distVal');
+      const sizeBoostInput = document.getElementById('sizeBoost');
+      const sizeBoostVal = document.getElementById('sizeBoostVal');
       const orbitToggle = document.getElementById('orbits');
 
       let speedMul = 1;
@@ -180,12 +191,16 @@
         speedVal.textContent = `${speedMul.toFixed(2)}x`;
       });
 
-      distInput.addEventListener('input', (e) => {
-        distanceCompression = Number(e.target.value);
-        distVal.textContent = distanceCompression.toFixed(2);
+      function rebuildPlanetVisuals() {
         for (const p of planets) {
           p.orbitRadius = scaledOrbit(p.au);
           p.mesh.position.set(p.orbitRadius, 0, 0);
+
+          const newRadius = computeRadius(p);
+          p.radius = newRadius;
+          p.mesh.geometry.dispose();
+          p.mesh.geometry = new THREE.SphereGeometry(newRadius, 36, 36);
+
           scene.remove(p.orbitPath);
           p.orbitPath.geometry.dispose();
           p.orbitPath.material.dispose();
@@ -193,6 +208,30 @@
           p.orbitPath.visible = orbitToggle.checked;
           scene.add(p.orbitPath);
         }
+
+        const sat = planets.find(p => p.name === 'Saturn');
+        if (sat) {
+          const oldRing = sat.mesh.children.find(c => c.type === 'Mesh');
+          if (oldRing) sat.mesh.remove(oldRing);
+          const ring = new THREE.Mesh(
+            new THREE.RingGeometry(sat.radius * 1.4, sat.radius * 2.2, 64),
+            new THREE.MeshBasicMaterial({ color: 0xbca36d, side: THREE.DoubleSide, transparent: true, opacity: 0.75 })
+          );
+          ring.rotation.x = -Math.PI / 2.4;
+          sat.mesh.add(ring);
+        }
+      }
+
+      distInput.addEventListener('input', (e) => {
+        distanceCompression = Number(e.target.value);
+        distVal.textContent = distanceCompression.toFixed(2);
+        rebuildPlanetVisuals();
+      });
+
+      sizeBoostInput.addEventListener('input', (e) => {
+        sizeBoost = Number(e.target.value);
+        sizeBoostVal.textContent = `${sizeBoost.toFixed(1)}x`;
+        rebuildPlanetVisuals();
       });
 
       orbitToggle.addEventListener('change', (e) => {
