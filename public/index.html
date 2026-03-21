@@ -66,17 +66,17 @@
       <label>Orbit speed <span id="speedVal">1.00x</span></label>
       <input id="speed" type="range" min="0" max="4" step="0.01" value="1" />
 
-      <label>Distance compression <span id="distVal">0.30</span></label>
-      <input id="dist" type="range" min="0.2" max="1" step="0.01" value="0.30" />
+      <label>Distance compression <span id="distVal">1.00</span></label>
+      <input id="dist" type="range" min="0.2" max="1" step="0.01" value="1" />
 
-      <label>Planet visibility boost <span id="sizeBoostVal">2.0x</span></label>
-      <input id="sizeBoost" type="range" min="1" max="6" step="0.1" value="2" />
+      <label>Planet visibility boost <span id="sizeBoostVal">1.0x</span></label>
+      <input id="sizeBoost" type="range" min="1" max="6" step="0.1" value="1" />
 
-      <label>Sun display scale <span id="sunScaleVal">0.12x</span></label>
-      <input id="sunScale" type="range" min="0.05" max="1" step="0.01" value="0.12" />
+      <label>Sun display scale <span id="sunScaleVal">1.00x</span></label>
+      <input id="sunScale" type="range" min="0.05" max="1" step="0.01" value="1" />
       <div class="row" style="margin-top:6px;">
         <label style="margin:0;">True Sun scale</label>
-        <input id="sunTrueScale" type="checkbox" style="width:auto;" />
+        <input id="sunTrueScale" type="checkbox" checked style="width:auto;" />
       </div>
 
       <div class="row" style="margin-top:8px;">
@@ -176,7 +176,7 @@
       const SIZE_SCALE = EARTH_RENDER_RADIUS;
       const AU_BASE = 220; // visual AU baseline before compression
 
-      let distanceCompression = 0.30;
+      let distanceCompression = 1.00;
       function scaledOrbit(au) {
         return au * AU_BASE * distanceCompression;
       }
@@ -197,14 +197,14 @@
       }
 
       const sunRadiusEarth = 109.1;
-      let sunDisplayScale = 0.12; // visual compromise so inner planets remain visible
+      let sunDisplayScale = 1.0;
       const sun = new THREE.Mesh(
         new THREE.SphereGeometry(sunRadiusEarth * SIZE_SCALE * sunDisplayScale, 64, 64),
         new THREE.MeshStandardMaterial({ emissive: 0xffb347, emissiveIntensity: 1.15, color: 0x5e3200 })
       );
       scene.add(sun);
 
-      let sizeBoost = 2.0;
+      let sizeBoost = 1.0;
 
       const TEX = {
         mercury: '/textures/mercury.jpg',
@@ -584,7 +584,16 @@
         goHome();
       });
 
+      // initialize true-scale defaults
+      sunScaleInput.disabled = sunTrueScaleInput.checked;
+      if (sunTrueScaleInput.checked) {
+        sunDisplayScale = 1;
+        sunScaleInput.value = '1';
+        sunScaleVal.textContent = '1.00x';
+      }
+
       applyQualityPreset('auto');
+      rebuildSunGeometry();
       rebuildPlanetVisuals();
       updateDetails();
 
