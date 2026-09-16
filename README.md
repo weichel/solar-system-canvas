@@ -2,6 +2,8 @@
 
 Interactive static Three.js solar system hosted at https://solar-system-canvas.vercel.app/.
 
+See [Cosmic Observatory plan and workstation handoff](COSMIC_OBSERVATORY_PLAN.md) for the proposed expansion into celestial object scenes, guided tours, and spacecraft journeys.
+
 ## Edit and publish
 
 - Edit `public/index.html` for the interface, simulation, and styles.
