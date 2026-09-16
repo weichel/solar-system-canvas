@@ -3,137 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Solar System Canvas (v1.12)</title>
-    <style>
-      html, body { margin: 0; height: 100%; background: #05070d; color: #e8ecff; font-family: Inter, system-ui, sans-serif; }
-      #app { position: fixed; inset: 0; }
-      #hud {
-        position: fixed; top: 12px; left: 12px; z-index: 10;
-        background: rgba(6, 10, 20, 0.78); border: 1px solid rgba(255,255,255,0.18);
-        border-radius: 10px; padding: 10px 12px; min-width: 140px; max-width: 180px; backdrop-filter: blur(6px);
-      }
-      #hud h3 { margin: 0 0 8px 0; font-size: 14px; }
-      #hud label { display: block; font-size: 12px; margin-top: 8px; opacity: .9; }
-      #hud input { width: 100%; }
-      #hud .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-      #hud small { opacity: 0.75; display:block; margin-top: 8px; line-height: 1.35; }
-      #legend { margin-top: 8px; font-size: 12px; opacity: .9; }
-      #legend div { margin-top: 3px; }
-
-      #overlay {
-        position: fixed;
-        inset: 0;
-        pointer-events: none;
-        z-index: 9;
-      }
-      .planet-label {
-        position: absolute;
-        transform: translate(-50%, -50%);
-        font-size: 11px;
-        color: #dfe7ff;
-        background: rgba(9, 14, 28, 0.72);
-        border: 1px solid rgba(255,255,255,0.18);
-        padding: 2px 6px;
-        border-radius: 999px;
-        white-space: nowrap;
-        pointer-events: auto;
-        cursor: pointer;
-      }
-      .planet-label.hovered {
-        border-color: rgba(255,255,255,0.85);
-        background: rgba(20, 30, 54, 0.9);
-      }
-      #planetPopup {
-        position: absolute;
-        transform: translate(-50%, -120%);
-        min-width: 180px;
-        max-width: 260px;
-        background: rgba(7, 11, 24, 0.9);
-        border: 1px solid rgba(255,255,255,0.25);
-        border-radius: 10px;
-        padding: 8px;
-        font-size: 12px;
-        color: #e9eeff;
-        display: none;
-      }
-    </style>
+    <title>Orbital Atlas — Explore the Solar System</title><meta name="description" content="Explore our solar system in an interactive 3D observatory." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" />
+    <link rel="stylesheet" href="/observatory.css" />
   </head>
   <body>
-    <div id="app"></div>
-    <div id="overlay"></div>
-    <div id="hud">
-      <h3>Solar System v1.12 (major bodies)</h3>
-      <label>Orbit speed <span id="speedVal">1.00x</span></label>
-      <input id="speed" type="range" min="0" max="4" step="0.01" value="1" />
-
-
-      <label>Planet visibility boost <span id="sizeBoostVal">1.0x</span></label>
-      <input id="sizeBoost" type="range" min="1" max="6" step="0.1" value="1" />
-
-      <label>Sun display scale <span id="sunScaleVal">1.00x</span></label>
-      <input id="sunScale" type="range" min="0.05" max="1" step="0.01" value="1" />
-      <div class="row" style="margin-top:6px;">
-        <label style="margin:0;">True Sun scale</label>
-        <input id="sunTrueScale" type="checkbox" checked style="width:auto;" />
-      </div>
-
-      <div class="row" style="margin-top:8px;">
-        <label style="margin:0;">Show orbit paths</label>
-        <input id="orbits" type="checkbox" checked style="width:auto;" />
-      </div>
-      <div class="row" style="margin-top:6px;">
-        <label style="margin:0;">Show asteroid belt</label>
-        <input id="asteroids" type="checkbox" checked style="width:auto;" />
-      </div>
-      <div class="row" style="margin-top:6px;">
-        <label style="margin:0;">Show moons</label>
-        <input id="moons" type="checkbox" checked style="width:auto;" />
-      </div>
-      <div class="row" style="margin-top:6px;">
-        <label style="margin:0;">Show secondary moons</label>
-        <input id="secondaryMoons" type="checkbox" checked style="width:auto;" />
-      </div>
-      <div class="row" style="margin-top:6px;">
-        <label style="margin:0;">Show satellites</label>
-        <input id="satellites" type="checkbox" style="width:auto;" />
-      </div>
-
-      <div id="legend">
-        <div><strong>Size ratios:</strong> accurate (Earth=1 baseline)</div>
-        <div><strong>Distances:</strong> compressed for visibility</div>
-      </div>
-
-      <label>Render quality</label>
-      <select id="quality" style="width:100%; margin-top:4px;">
-        <option value="auto" selected>Auto</option>
-        <option value="low">Low</option>
-        <option value="medium">Medium</option>
-        <option value="high">High</option>
-        <option value="ultra">Ultra</option>
-      </select>
-
-      <label>Units</label>
-      <select id="units" style="width:100%; margin-top:4px;">
-        <option value="astronomy" selected>Astronomy (AU + Earth radii)</option>
-        <option value="metric">Metric (km)</option>
-      </select>
-
-      <div class="row" style="margin-top:8px; gap:6px;">
-        <button id="focusBtn" style="flex:1;">Focus selected</button>
-        <button id="homeBtn" style="flex:1;">Home camera</button>
-      </div>
-      <div class="row" style="margin-top:6px;">
-        <label style="margin:0;">Cinematic mode</label>
-        <input id="cinematic" type="checkbox" style="width:auto;" />
-      </div>
-
-      <div id="details" style="margin-top:8px; font-size:12px; border:1px solid rgba(255,255,255,.16); border-radius:8px; padding:8px; background:rgba(10,14,28,.7);">
-        <strong>Selection</strong><br/>Click a planet label to inspect details.
-      </div>
-
-      <small>Left-click to focus · right-drag to rotate · scroll to zoom · WASD move (clears focus)</small>
-    </div>
-
+<div id="loading" role="status"><div class="loading-orbit"></div><strong>Orbital Atlas</strong>Preparing your observatory…</div>
+<div id="app" aria-label="Interactive three-dimensional solar system"></div>
+<header class="masthead"><div class="brand"><span class="brand-mark" aria-hidden="true"></span><div><strong>ORBITAL ATLAS</strong><small>A SOLAR SYSTEM OBSERVATORY</small></div></div><div class="header-actions"><span class="status" id="runStatus">Simulation running</span><button id="controlsBtn" class="quiet-button" aria-expanded="true" aria-controls="hud">Controls</button><button id="resetView" class="quiet-button" aria-label="Return to overview">Overview ↗</button></div></header>
+<div class="scene-heading"><span class="index">01 / OUR COSMIC NEIGHBORHOOD</span><h1>The solar system.</h1><p>Follow a world. Find a new perspective.</p></div><div id="overlay"></div>
+<aside id="hud" aria-label="Simulation controls"><span class="eyebrow">Mission control</span><h2>Your perspective.</h2><p class="panel-intro">A little curiosity goes a long way.</p>
+<section class="control-group"><div class="group-heading">Time & motion <span>01</span></div><label for="speed">Orbit speed <span id="speedVal">1.00×</span></label><input id="speed" type="range" min="0" max="4" step="0.01" value="1" /><div class="transport"><button id="pauseBtn" aria-label="Pause simulation">Ⅱ Pause</button><button id="homeBtn">Reset view</button></div><div class="row"><label for="cinematic">Cinematic mode</label><input id="cinematic" type="checkbox" /></div></section>
+<section class="control-group"><div class="group-heading">Scene layers <span>02</span></div>
+<div class="row"><label for="orbits">Orbital paths</label><input id="orbits" type="checkbox" checked /></div><div class="row"><label for="asteroids">Asteroid belt</label><input id="asteroids" type="checkbox" checked /></div><div class="row"><label for="moons">Major moons</label><input id="moons" type="checkbox" checked /></div><div class="row"><label for="secondaryMoons">Secondary moons</label><input id="secondaryMoons" type="checkbox" checked /></div><div class="row"><label for="satellites">Earth satellites</label><input id="satellites" type="checkbox"  /></div>
+</section><details class="control-group"><summary>Scale & appearance</summary><label for="sizeBoost">Planet visibility <span id="sizeBoostVal">1.0×</span></label><input id="sizeBoost" type="range" min="1" max="6" step="0.1" value="1" /><label for="sunScale">Sun display scale <span id="sunScaleVal">1.00×</span></label><input id="sunScale" type="range" min="0.05" max="1" step="0.01" value="1" /><div class="row"><label for="sunTrueScale">True Sun size ratio</label><input id="sunTrueScale" type="checkbox" checked /></div><div id="legend">Sizes use Earth as a baseline.<br>Distances and moon systems are compressed for exploration. Positions are simulated.</div><label for="quality">Render quality</label><select id="quality"><option value="auto">Auto · device adaptive</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="ultra">Ultra</option></select><label for="units">Measurement units</label><select id="units"><option value="astronomy">AU & Earth radii</option><option value="metric">Kilometers</option></select></details></aside>
+<aside id="inspector" class="empty" aria-label="Selected body"><div id="details" aria-live="polite"></div><button id="focusBtn" class="quiet-button">Recenter on this world ↗</button></aside><div class="hint"><kbd>Drag</kbd> orbit &nbsp; <kbd>Scroll</kbd> zoom &nbsp; <kbd>Space</kbd> pause</div><div class="scene-note">NOT TO DISTANCE SCALE / ALWAYS WORTH EXPLORING</div><nav class="dock" aria-label="Explore celestial bodies"><div class="dock-title"><span class="eyebrow">Choose a destination</span><strong>Worlds to discover</strong></div><div id="planetNav"></div></nav>
+<script>window.addEventListener('error',()=>{const el=document.getElementById('loading');if(!el.classList.contains('hidden'))el.innerHTML='<strong>Unable to open the observatory</strong><p>Please reload with a WebGL-capable browser and an internet connection.</p>';});</script>
     <script type="importmap">
       {
         "imports": {
@@ -144,19 +31,20 @@
 
     <script type="module">
       import * as THREE from 'three';
+      import { advanceSimulationTime } from '/simulation.mjs';
       import * as sat from 'https://cdn.jsdelivr.net/npm/satellite.js@5.0.0/+esm';
       import { OrbitControls } from 'https://unpkg.com/three@0.161.0/examples/jsm/controls/OrbitControls.js';
       import { EffectComposer } from 'https://unpkg.com/three@0.161.0/examples/jsm/postprocessing/EffectComposer.js';
       import { RenderPass } from 'https://unpkg.com/three@0.161.0/examples/jsm/postprocessing/RenderPass.js';
       import { UnrealBloomPass } from 'https://unpkg.com/three@0.161.0/examples/jsm/postprocessing/UnrealBloomPass.js';
-      import { FilmPass } from 'https://unpkg.com/three@0.161.0/examples/jsm/postprocessing/FilmPass.js';
+      import { OutputPass } from 'https://unpkg.com/three@0.161.0/examples/jsm/postprocessing/OutputPass.js';
 
       const container = document.getElementById('app');
       const scene = new THREE.Scene();
       scene.background = new THREE.Color(0x05070d);
 
       const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 300000);
-      camera.position.set(0, 220, 520);
+      camera.position.set(0, 850, 2100);
 
       const renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
@@ -169,19 +57,19 @@
 
       const composer = new EffectComposer(renderer);
       composer.addPass(new RenderPass(scene, camera));
-      const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.62, 0.85, 0.14);
+      const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.28, 0.55, 0.85);
       composer.addPass(bloomPass);
-      const filmPass = new FilmPass(0.16, 0.0, 0, false);
-      composer.addPass(filmPass);
+      composer.addPass(new OutputPass());
 
       const controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.minDistance = 0.5;
       controls.maxDistance = 150000;
-      controls.mouseButtons.LEFT = -1; // left-click reserved for focus interaction
+      controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
       controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
 
-      const HOME_CAMERA_POS = new THREE.Vector3(0, 220, 520);
+      controls.addEventListener('start', () => { flightOffset = null; });
+      const HOME_CAMERA_POS = new THREE.Vector3(0, 850, 2100);
       const HOME_TARGET = new THREE.Vector3(0, 0, 0);
       controls.target.copy(HOME_TARGET);
 
@@ -254,7 +142,13 @@
       let sunDisplayScale = 1.0;
       const sun = new THREE.Mesh(
         new THREE.SphereGeometry(sunRadiusEarth * SIZE_SCALE * sunDisplayScale, 64, 64),
-        new THREE.MeshStandardMaterial({ emissive: 0xffb347, emissiveIntensity: 1.35, color: 0x5e3200 })
+        new THREE.ShaderMaterial({
+          vertexShader: 'varying vec2 vUv; varying vec3 vNormal; varying vec3 vView; void main(){vUv=uv;vec4 mv=modelViewMatrix*vec4(position,1.0);vNormal=normalize(normalMatrix*normal);vView=normalize(-mv.xyz);gl_Position=projectionMatrix*mv;}',
+          fragmentShader: `varying vec2 vUv;varying vec3 vNormal;varying vec3 vView;
+          float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
+          float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);}
+          void main(){float grain=noise(vUv*180.0)*0.5+noise(vUv*360.0)*0.25+noise(vUv*60.0)*0.25;float limb=pow(max(0.0,dot(normalize(vNormal),normalize(vView))),0.45);vec3 color=mix(vec3(1.0,0.23,0.025),vec3(1.0,0.64,0.15),grain);gl_FragColor=vec4(color*(1.5+limb*1.2),1.0);}`
+        })
       );
       scene.add(sun);
 
@@ -262,14 +156,13 @@
       const coronaMat = new THREE.MeshBasicMaterial({
         color: 0xffc26e,
         transparent: true,
-        opacity: 0.22,
+        opacity: 0.055,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         side: THREE.DoubleSide
       });
       const sunCorona = new THREE.Mesh(
-        new THREE.SphereGeometry(sunRadiusEarth * SIZE_SCALE * sunDisplayScale * 1.12, 48, 48),
-        coronaMat
+        new THREE.SphereGeometry(sunRadiusEarth * SIZE_SCALE * sunDisplayScale * 1.12, 48, 48), coronaMat
       );
       scene.add(sunCorona);
 
@@ -288,7 +181,7 @@
       const textureLoader = new THREE.TextureLoader();
 
       // Stricter-realism backdrop: static high-res star sphere (no artistic streaks/nebula drift).
-      function makeCatalogLikeStarSky({ w = 8192, h = 4096, stars = 120000 }) {
+      function makeCatalogLikeStarSky({ w = 4096, h = 2048, stars = 30000 }) {
         const c = document.createElement('canvas');
         c.width = w;
         c.height = h;
@@ -323,7 +216,7 @@
         return tex;
       }
 
-      const skyTex = makeCatalogLikeStarSky({ stars: 120000 });
+      const skyTex = makeCatalogLikeStarSky({ stars: 30000 });
       const skyGeoA = new THREE.SphereGeometry(120000, 120, 120);
       const skyMatA = new THREE.MeshBasicMaterial({ map: skyTex, side: THREE.BackSide, depthWrite: false, fog: false });
       const skyDomeA = new THREE.Mesh(skyGeoA, skyMatA);
@@ -375,7 +268,7 @@
               return orbitPosition(semiMajor, eccentricity, t, inclinationDeg, nodeDeg);
             })
           ),
-          new THREE.LineBasicMaterial({ color: 0x31486f, transparent: true, opacity: 0.75 })
+          new THREE.LineBasicMaterial({ color: 0x617880, transparent: true, opacity: 0.26 })
         );
       }
 
@@ -388,7 +281,7 @@
         scene.add(group);
 
         const radius = computeRadius(p);
-        const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.96, metalness: 0.0 });
+        const mat = new THREE.MeshStandardMaterial({ color: p.texture ? 0xffffff : p.color, roughness: 0.96, metalness: 0.0 });
         if (p.name === 'Ceres') {
           mat.color.setHex(0xb8b1a1);
           mat.emissive.setHex(0x0f0f10);
@@ -454,10 +347,10 @@
       const asteroidParams = [];
 
       // Supplemental dust layer so the belt reads clearly at a glance.
-      const beltDustCount = 14000;
+      const beltDustCount = 5000;
       const beltDustPos = new Float32Array(beltDustCount * 3);
       const beltDustGeo = new THREE.BufferGeometry();
-      const beltDustMat = new THREE.PointsMaterial({ color: 0xc8c1af, size: 0.55, transparent: true, opacity: 0.42, depthWrite: false });
+      const beltDustMat = new THREE.PointsMaterial({ color: 0xc8c1af, size: 0.4, transparent: true, opacity: 0.12, depthWrite: false });
       const beltDust = new THREE.Points(beltDustGeo, beltDustMat);
       beltDust.frustumCulled = false;
       scene.add(beltDust);
@@ -755,7 +648,8 @@ NOAA 15
       const labelEls = new Map();
       const moonLabelEls = new Map();
       for (const p of planets) {
-        const el = document.createElement('div');
+        const el = document.createElement('button');
+        el.type='button'; el.setAttribute('aria-label',`Explore ${p.name}`);
         el.className = 'planet-label';
         el.textContent = p.name;
         el.dataset.planetName = p.name;
@@ -807,6 +701,7 @@ NOAA 15
       let hoveredObject = null;
       let focusTargetPlanet = null;
       let focusStrength = 0;
+      let flightOffset = null;
       let focusLocked = false;
       let lastFocusWorldPos = null;
       const keyState = new Set();
@@ -825,34 +720,13 @@ NOAA 15
         hoveredObject = obj || null;
 
         if (hoveredObject?.userData?.hoverOutline) {
-          hoveredObject.userData.hoverOutline.visible = true;
+          hoveredObject.userData.hoverOutline.visible = false;
         }
       }
 
-      function updateDetails() {
-        if (!selectedPlanet) {
-          detailsEl.innerHTML = `<strong>Selection</strong><br/>Click a planet label to inspect details.`;
-          return;
-        }
-
-        const units = document.getElementById('units').value;
-        if (units === 'metric') {
-          detailsEl.innerHTML = `
-            <strong>${selectedPlanet.name}</strong><br/>
-            Radius: ${(selectedPlanet.radiusEarth * EARTH_RADIUS_KM).toLocaleString(undefined, { maximumFractionDigits: 0 })} km<br/>
-            Orbit distance: ${(selectedPlanet.au * AU_KM).toLocaleString(undefined, { maximumFractionDigits: 0 })} km<br/>
-            Orbital period: ${selectedPlanet.periodYears.toFixed(2)} Earth years
-          `;
-        } else {
-          detailsEl.innerHTML = `
-            <strong>${selectedPlanet.name}</strong><br/>
-            Radius: ${selectedPlanet.radiusEarth.toFixed(3)} Earth radii<br/>
-            Orbit distance: ${selectedPlanet.au.toFixed(2)} AU<br/>
-            Orbital period: ${selectedPlanet.periodYears.toFixed(2)} Earth years
-          `;
-        }
-      }
-
+const descriptions={Mercury:'A small, cratered world on the innermost orbit.',Venus:'A cloud-wrapped world with a slow, retrograde spin.',Earth:'Our ocean world, and the place we call home.',Mars:'A rust-colored landscape beyond Earth’s orbit.',Jupiter:'The giant of our solar system, surrounded by a family of moons.',Saturn:'An extraordinary world framed by sweeping rings.',Uranus:'An ice giant with an extreme axial tilt.',Neptune:'A distant blue world at the edge of the major planets.'};
+function updateDetails(){document.getElementById('inspector').classList.toggle('empty',!selectedPlanet);document.body.classList.toggle('has-selection',!!selectedPlanet);document.querySelectorAll('.destination').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.name===selectedPlanet?.name)));if(!selectedPlanet){detailsEl.innerHTML='';return;}const p=selectedPlanet,metric=document.getElementById('units').value==='metric';const radius=metric?(p.radiusEarth*EARTH_RADIUS_KM).toLocaleString(undefined,{maximumFractionDigits:0})+' km':p.radiusEarth.toFixed(3)+' R⊕';const distance=metric?(p.au*AU_KM).toLocaleString(undefined,{maximumFractionDigits:0})+' km':p.au.toFixed(2)+' AU';detailsEl.innerHTML='<span class="eyebrow">Destination / '+(descriptions[p.name]?'Planet':'Dwarf planet')+'</span><h2>'+p.name+'</h2><p>'+(descriptions[p.name]||'A small world in our solar system. Follow its journey around the Sun.')+'</p><dl><div><dt>Radius</dt><dd>'+radius+'</dd></div><div><dt>Orbit distance</dt><dd>'+distance+'</dd></div><div><dt>Orbital period</dt><dd>'+p.periodYears.toFixed(2)+' years</dd></div></dl>';}
+for(const p of planets){const button=document.createElement('button');button.className='destination';button.dataset.name=p.name;button.setAttribute('aria-pressed','false');button.innerHTML='<span class="planet-dot" style="--planet-color:#'+p.color.toString(16).padStart(6,'0')+'"></span>'+p.name;button.addEventListener('click',()=>{selectedPlanet=p;updateDetails();focusOnPlanet(p);setHover(p.mesh);});document.getElementById('planetNav').appendChild(button);}
       function focusOnPlanet(planet, lock = true) {
         if (!planet) return;
         focusTargetPlanet = planet;
@@ -861,28 +735,29 @@ NOAA 15
         lastFocusWorldPos = new THREE.Vector3();
         planet.mesh.getWorldPosition(lastFocusWorldPos);
 
-        // On initial focus click, move camera much closer immediately.
-        const dir = camera.position.clone().sub(controls.target).normalize();
-        const closeDist = Math.max(4.0, (planet.radius || 2) * 7.0);
-        controls.target.copy(lastFocusWorldPos);
-        camera.position.copy(lastFocusWorldPos.clone().add(dir.multiplyScalar(closeDist)));
+        // Approach the sunlit side, slightly above the orbital plane.
+        const dir = lastFocusWorldPos.clone().negate().normalize();
+        dir.add(new THREE.Vector3(0, 1, 0).applyQuaternion(planet.mesh.quaternion).multiplyScalar(0.85)); dir.normalize();
+        flightOffset = dir.multiplyScalar(Math.max(4.0, (planet.radius || 2) * 7.0));
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          controls.target.copy(lastFocusWorldPos);
+          camera.position.copy(lastFocusWorldPos).add(flightOffset); flightOffset = null;
+        }
       }
 
-      function goHome() {
-        focusLocked = false;
-        focusTargetPlanet = { mesh: { getWorldPosition: (v) => v.copy(HOME_TARGET) }, radius: 40 };
-        focusStrength = 1;
-        lastFocusWorldPos = HOME_TARGET.clone();
-      }
-
+function goHome(){flightOffset=null;focusLocked=false;focusTargetPlanet=null;lastFocusWorldPos=null;selectedPlanet=null;keyState.clear();setHover(null);updateDetails();camera.position.copy(HOME_CAMERA_POS);controls.target.copy(HOME_TARGET);controls.update();}
       window.addEventListener('keydown', (e) => {
         const k = e.key.toLowerCase();
+if(e.target.closest('input,select,button,summary')||e.ctrlKey||e.metaKey||e.altKey)return;
+if(k===' '&&!e.repeat){e.preventDefault();togglePause();return;}
+if(k==='escape'){cinematicInput.checked=false;setCinematicMode(false);goHome();return;}
         if (["w", "a", "s", "d"].includes(k)) {
           e.preventDefault();
           keyState.add(k);
           // WASD movement always breaks focus lock.
           focusLocked = false;
           focusTargetPlanet = null;
+          flightOffset = null;
           lastFocusWorldPos = null;
         }
       });
@@ -892,11 +767,14 @@ NOAA 15
         if (["w", "a", "s", "d"].includes(k)) keyState.delete(k);
       });
 
+window.addEventListener('blur',()=>keyState.clear());
+document.addEventListener('visibilitychange',()=>{keyState.clear();clock.getDelta();});
       function applyQualityPreset(level) {
         const dprMap = { low: 1.0, medium: 1.3, high: 1.8, ultra: 2.2 };
         const starMap = { low: 0.65, medium: 0.9, high: 1.1, ultra: 1.3 };
-        const dpr = level === 'auto' ? Math.min(window.devicePixelRatio, 2) : dprMap[level] ?? 1.3;
+        const dpr = level === 'auto' ? Math.min(window.devicePixelRatio, window.innerWidth < 700 ? 1.25 : 1.75) : dprMap[level] ?? 1.3;
         renderer.setPixelRatio(Math.min(dpr, 2.5));
+composer.setPixelRatio(Math.min(dpr,2.5));bloomPass.enabled=level!=="low";
         starMaterial.size = starMap[level] ?? 1.1;
         starMaterial.needsUpdate = true;
       }
@@ -905,7 +783,9 @@ NOAA 15
       const raycaster = new THREE.Raycaster();
       const pointer = new THREE.Vector2();
 
+let pointerStart=null;renderer.domElement.addEventListener('pointerdown',e=>{pointerStart={x:e.clientX,y:e.clientY};});
       renderer.domElement.addEventListener('click', (event) => {
+if(!pointerStart||Math.hypot(event.clientX-pointerStart.x,event.clientY-pointerStart.y)>6)return;
         const rect = renderer.domElement.getBoundingClientRect();
         pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
         pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -991,41 +871,21 @@ NOAA 15
 
       function addSaturnRings(sat) {
         if (!sat) return;
-
-        const base = new THREE.Mesh(
-          new THREE.RingGeometry(sat.radius * 1.30, sat.radius * 2.32, 384),
-          new THREE.MeshStandardMaterial({ map: saturnRingTex, color: 0xe8d9b6, side: THREE.DoubleSide, transparent: true, opacity: 0.92, roughness: 0.92, metalness: 0.0, alphaTest: 0.06, depthWrite: true })
-        );
-        base.rotation.x = -Math.PI / 2.4;
-        base.userData.isSaturnRing = true;
-        sat.mesh.add(base);
-
-        const brightB = new THREE.Mesh(
-          new THREE.RingGeometry(sat.radius * 1.48, sat.radius * 1.90, 320),
-          new THREE.MeshStandardMaterial({ color: 0xf1e4c6, side: THREE.DoubleSide, transparent: true, opacity: 0.18, roughness: 0.95, metalness: 0.0, depthWrite: true })
-        );
-        brightB.rotation.x = -Math.PI / 2.4;
-        brightB.userData.isSaturnRing = true;
-        sat.mesh.add(brightB);
-
-        const cassini = new THREE.Mesh(
-          new THREE.RingGeometry(sat.radius * 1.90, sat.radius * 1.98, 320),
-          new THREE.MeshStandardMaterial({ color: 0x2a2825, side: THREE.DoubleSide, transparent: true, opacity: 0.62, roughness: 1.0, metalness: 0.0, depthWrite: true })
-        );
-        cassini.rotation.x = -Math.PI / 2.4;
-        cassini.userData.isSaturnRing = true;
-        sat.mesh.add(cassini);
-
-        const backscatter = new THREE.Mesh(
-          new THREE.RingGeometry(sat.radius * 1.30, sat.radius * 2.32, 384),
-          new THREE.MeshStandardMaterial({ map: saturnRingTex, color: 0xc9b590, side: THREE.DoubleSide, transparent: true, opacity: 0.08, roughness: 1.0, metalness: 0.0, depthWrite: false })
-        );
-        backscatter.rotation.x = -Math.PI / 2.4;
-        backscatter.rotation.z = 0.003;
-        backscatter.userData.isSaturnRing = true;
-        sat.mesh.add(backscatter);
-
-
+        const inner = sat.radius * 1.3, outer = sat.radius * 2.32;
+        const geometry = new THREE.RingGeometry(inner, outer, 256, 4);
+        const positions = geometry.attributes.position, uv = geometry.attributes.uv;
+        for (let i=0; i<positions.count; i++) {
+          const radius = Math.hypot(positions.getX(i), positions.getY(i));
+          uv.setXY(i, (radius-inner)/(outer-inner), 0.5);
+        }
+        const ring = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
+          map:saturnRingTex, color:0xb7a589, side:THREE.DoubleSide,
+          transparent:true, opacity:0.85,
+          depthWrite:false, alphaTest:0.025
+        }));
+        ring.rotation.x = -Math.PI / 2;
+        ring.userData.isSaturnRing = true;
+        sat.mesh.add(ring);
       }
 
       // Saturn rings
@@ -1051,10 +911,14 @@ NOAA 15
       const homeBtn = document.getElementById('homeBtn');
       const cinematicInput = document.getElementById('cinematic');
 
-      let speedMul = 1;
+let speedMul=1,previousSpeed=1;
+function syncTransport(){document.getElementById('pauseBtn').textContent=speedMul===0?'▶ Resume':'Ⅱ Pause';document.getElementById('pauseBtn').setAttribute('aria-label',speedMul===0?'Resume simulation':'Pause simulation');document.getElementById('runStatus').textContent=speedMul===0?'Simulation paused':'Simulation running';speedInput.value=speedMul;speedVal.textContent=speedMul.toFixed(2)+'×';}
+function togglePause(){if(speedMul>0){previousSpeed=speedMul;speedMul=0;}else{speedMul=previousSpeed||1;}syncTransport();}
+document.getElementById('pauseBtn').addEventListener('click',togglePause);document.getElementById('resetView').addEventListener('click',goHome);
+const controlsBtn=document.getElementById('controlsBtn');function setPanel(open){document.body.classList.toggle('hud-hidden',!open);controlsBtn.setAttribute('aria-expanded',String(open));}setPanel(window.innerWidth>700);controlsBtn.addEventListener('click',()=>{const wasCinematic=cinematicInput.checked;cinematicInput.checked=false;setCinematicMode(false);setPanel(wasCinematic || document.body.classList.contains('hud-hidden'));});
       speedInput.addEventListener('input', (e) => {
         speedMul = Number(e.target.value);
-        speedVal.textContent = `${speedMul.toFixed(2)}x`;
+        syncTransport();
       });
 
       function rebuildPlanetVisuals() {
@@ -1098,7 +962,7 @@ NOAA 15
         const sat = planets.find(p => p.name === 'Saturn');
         if (sat) {
           for (const ch of [...sat.mesh.children]) {
-            if (ch.userData?.isSaturnRing || ch.geometry?.type === 'RingGeometry') sat.mesh.remove(ch);
+            if(ch.userData?.isSaturnRing || ch.geometry?.type === 'RingGeometry'){sat.mesh.remove(ch);ch.geometry?.dispose();ch.material?.dispose();}
           }
           addSaturnRings(sat);
         }
@@ -1173,29 +1037,7 @@ NOAA 15
         satellitePoints.visible = e.target.checked;
       });
 
-      function setCinematicMode(enabled) {
-        if (enabled) {
-          document.getElementById('hud').style.opacity = '0.18';
-          document.getElementById('hud').style.transition = 'opacity 220ms ease';
-          bloomPass.strength = 0.9;
-          bloomPass.radius = 0.9;
-          bloomPass.threshold = 0.1;
-          filmPass.uniforms['nIntensity'].value = 0.2;
-          renderer.toneMappingExposure = 1.16;
-          controls.enableDamping = true;
-          controls.dampingFactor = 0.1;
-        } else {
-          document.getElementById('hud').style.opacity = '1';
-          bloomPass.strength = 0.62;
-          bloomPass.radius = 0.85;
-          bloomPass.threshold = 0.14;
-          filmPass.uniforms['nIntensity'].value = 0.12;
-          renderer.toneMappingExposure = 1.08;
-          controls.enableDamping = true;
-          controls.dampingFactor = 0.05;
-        }
-      }
-
+function setCinematicMode(enabled){document.body.classList.toggle('cinematic',enabled);bloomPass.strength=enabled?0.42:0.28;renderer.toneMappingExposure=enabled?1.12:1.08;controls.dampingFactor=enabled?0.08:0.05;}
       cinematicInput.addEventListener('change', (e) => setCinematicMode(e.target.checked));
 
       qualitySelect.addEventListener('change', (e) => applyQualityPreset(e.target.value));
@@ -1225,20 +1067,21 @@ NOAA 15
       updateDetails();
 
       const clock = new THREE.Clock();
+let simulationTime=0;
       function animate() {
-        const t = clock.getElapsedTime() * speedMul * 0.25;
-        updateAsteroidBelt(t);
-        updateSatellites(Date.now());
+        const delta=Math.min(clock.getDelta(),0.05);const frameDelta=delta;simulationTime=advanceSimulationTime(simulationTime,delta,speedMul);const t=simulationTime;
+        if (asteroidBelt.visible) updateAsteroidBelt(t);
+        if (satellitePoints.visible) updateSatellites(Date.now());
 
-        sun.rotation.y += 0.0018;
-        sunCorona.rotation.y -= 0.0008;
-        const coronaPulse = 1 + Math.sin(clock.getElapsedTime() * 1.25) * 0.015;
+        sun.rotation.y += 0.108*delta*speedMul;
+        sunCorona.rotation.y -= 0.048*delta*speedMul;
+        const coronaPulse = 1 + Math.sin(clock.elapsedTime * 1.25) * 0.015;
         sunCorona.scale.setScalar(coronaPulse);
 
-        if (earthCloudMesh) earthCloudMesh.rotation.y += 0.0012;
+        if (earthCloudMesh) earthCloudMesh.rotation.y += 0.072*delta*speedMul;
 
         if (cinematicInput.checked && !focusLocked && !focusTargetPlanet) {
-          const drift = clock.getElapsedTime();
+          const drift = clock.elapsedTime;
           camera.position.x += Math.sin(drift * 0.11) * 0.015;
           camera.position.y += Math.cos(drift * 0.09) * 0.01;
         }
@@ -1250,7 +1093,7 @@ NOAA 15
         for (const p of planets) {
           const theta = t * p.orbitSpeed + (p.phase || 0);
           p.mesh.position.copy(orbitPosition(p.orbitRadius, p.eccentricity || 0, theta, p.inclinationDeg || 0, p.nodeDeg || 0));
-          p.mesh.rotateY(p.spinSpeed || 0.0025);
+          p.mesh.rotateY((p.spinSpeed || 0.0025)*delta*60*speedMul);
 
           const worldPos = new THREE.Vector3();
           p.mesh.getWorldPosition(worldPos);
@@ -1260,7 +1103,7 @@ NOAA 15
           const projected = labelWorldPos.clone().project(camera);
           const x = (projected.x * 0.5 + 0.5) * window.innerWidth;
           const y = (-projected.y * 0.5 + 0.5) * window.innerHeight;
-          const visible = projected.z < 1;
+          const visible = projected.z > -1 && projected.z < 1 && x > 12 && x < window.innerWidth-12 && y > 88 && y < window.innerHeight-120 && !(y < 235 && x < 710);
 
           const lbl = labelEls.get(p.name);
           if (lbl) {
@@ -1289,7 +1132,7 @@ NOAA 15
           const localR = Math.max(physicallyScaled, minClearance);
           const off = orbitPosition(localR, 0.02, theta, m.inc || 0, 0);
           m.mesh.position.copy(hostPos).add(off);
-          m.mesh.rotation.y += 0.01;
+          m.mesh.rotation.y += 0.6*delta*speedMul;
 
           const lbl = moonLabelEls.get(m.name);
           if (!lbl) continue;
@@ -1316,8 +1159,12 @@ NOAA 15
             // Keep camera orbit centered on the selected moving planet.
             if (!lastFocusWorldPos) lastFocusWorldPos = wp.clone();
             const delta = wp.clone().sub(lastFocusWorldPos);
-            camera.position.add(delta);
-            controls.target.copy(wp);
+            if (flightOffset) {
+              const blend = 1 - Math.exp(-5 * frameDelta);
+              const destination = wp.clone().add(flightOffset);
+              camera.position.lerp(destination, blend); controls.target.lerp(wp, blend);
+              if (camera.position.distanceTo(destination) < Math.max(0.02, focusTargetPlanet.radius * 0.02)) flightOffset = null;
+            } else { camera.position.add(delta); controls.target.copy(wp); }
             lastFocusWorldPos.copy(wp);
 
             // Prevent clipping into the planet while still allowing very close zoom.
@@ -1340,7 +1187,7 @@ NOAA 15
         if (keyState.size) {
           const forward = controls.target.clone().sub(camera.position).normalize();
           const right = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
-          const step = Math.max(0.2, camera.position.distanceTo(controls.target) * 0.01);
+          const step = Math.max(0.2, camera.position.distanceTo(controls.target)*0.01)*delta*60;
 
           if (keyState.has('w')) {
             camera.position.add(forward.clone().multiplyScalar(step));
@@ -1361,10 +1208,11 @@ NOAA 15
         }
 
         controls.update();
-        composer.render();
+        composer.render(delta);
         requestAnimationFrame(animate);
       }
       animate();
+document.getElementById('loading').classList.add('hidden');document.getElementById('loading').setAttribute('aria-hidden','true');
 
       window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;

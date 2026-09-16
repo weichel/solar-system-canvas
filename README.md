@@ -5,6 +5,8 @@ Interactive static Three.js solar system hosted at https://solar-system-canvas.v
 ## Edit and publish
 
 - Edit `public/index.html` for the interface, simulation, and styles.
+- Edit `public/observatory.css` for the observatory interface and responsive layout.
+- Orbital time integration lives in `public/simulation.mjs`. Run its regression checks with `node --test tests/simulation.test.mjs`.
 - Edit assets in `public/textures/`.
 - Serve `public/` as the web server root for local previews. For example, with Python installed: `python -m http.server 8000 --directory public`.
 - Review your changes, commit them, and push to `master`. Vercel is connected to `weichel/solar-system-canvas` and uses `master` for production. Successful deployments update the existing domain automatically.

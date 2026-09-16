@@ -1,5 +1,11 @@
 # Project audit — September 16, 2026
 
+## Follow-up: observatory polish pass
+
+The subsequent polish pass resolves the speed discontinuity, control-label and planet-button accessibility issues, short-screen panel overflow, frame-dependent WASD movement, missed keyup state, and home camera reset listed below. It adds an observatory interface, destination dock, responsive inspector, continuous pause/resume, guided camera approach, reduced-motion camera handling, corrected output tone mapping, a procedural solar surface, and radially mapped Saturn rings. Low quality skips bloom; the sky texture is smaller and hidden asteroid/satellite layers skip updates.
+
+Validation: four simulation regression tests pass; inline module syntax passes; desktop and 390px mobile browser checks cover pause, selection, cinematic mode, scale rebuilds, quality presets, and units. At 390 × 664 the control panel ends at y=558 and scrolls internally. No console warnings or errors were captured during these checks. Findings below describe the original audited version.
+
 ## Deployment findings
 
 1. **High: production source was missing from GitHub.** Local `master` and the remote branch both pointed to `e4f00ae0a7ab69c01d10b9cf1c8bf36f2478d825` (v1). Production serves v1.12 and Vercel identifies its source as `4fc8655a0daca8378aff1aaa1011322a03356cf9`. GitHub reports that commit does not exist in this repository. Pushing the original checkout could replace newer production features with v1. The cause of the missing history is not established.
