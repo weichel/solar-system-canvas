@@ -7,6 +7,12 @@
   --panel:rgba(14,21,23,.88)
 }
 
+#satelliteTools { margin-top: 12px; padding: 12px 0 0; border-top: 1px solid var(--line); }
+#satelliteTools[hidden], #satelliteDemo[hidden] { display: none; }
+#satelliteStatus { color: var(--accent); font-size: 11px; line-height: 1.6; }
+.satellite-note { color: var(--muted); font-size: 10px; line-height: 1.6; }
+#satelliteTools button { width: 100%; margin: 5px 0; font-size: 10px; }
+
 * {
   box-sizing:border-box
 }
@@ -682,4 +688,3 @@ summary {
 }
 
 }
-

@@ -17,7 +17,7 @@
 <aside id="hud" aria-label="Simulation controls"><span class="eyebrow">Mission control</span><h2>Your perspective.</h2><p class="panel-intro">A little curiosity goes a long way.</p>
 <section class="control-group"><div class="group-heading">Time & motion <span>01</span></div><label for="speed">Orbit speed <span id="speedVal">1.00×</span></label><input id="speed" type="range" min="0" max="4" step="0.01" value="1" /><div class="transport"><button id="pauseBtn" aria-label="Pause simulation">Ⅱ Pause</button><button id="homeBtn">Reset view</button></div><div class="row"><label for="cinematic">Cinematic mode</label><input id="cinematic" type="checkbox" /></div></section>
 <section class="control-group"><div class="group-heading">Scene layers <span>02</span></div>
-<div class="row"><label for="orbits">Orbital paths</label><input id="orbits" type="checkbox" checked /></div><div class="row"><label for="asteroids">Asteroid belt</label><input id="asteroids" type="checkbox" checked /></div><div class="row"><label for="moons">Major moons</label><input id="moons" type="checkbox" checked /></div><div class="row"><label for="secondaryMoons">Secondary moons</label><input id="secondaryMoons" type="checkbox" checked /></div><div class="row"><label for="satellites">Earth satellites</label><input id="satellites" type="checkbox"  /></div>
+<div class="row"><label for="orbits">Orbital paths</label><input id="orbits" type="checkbox" checked /></div><div class="row"><label for="asteroids">Asteroid belt</label><input id="asteroids" type="checkbox" checked /></div><div class="row"><label for="moons">Major moons</label><input id="moons" type="checkbox" checked /></div><div class="row"><label for="secondaryMoons">Secondary moons</label><input id="secondaryMoons" type="checkbox" checked /></div><div class="row"><label for="satellites">Earth satellites</label><input id="satellites" type="checkbox" aria-describedby="satelliteStatus" /></div><div id="satelliteTools" hidden><p id="satelliteStatus" role="status" aria-live="polite">Enable to load satellite data.</p><p class="satellite-note">Positions are calculated from orbital elements, not live telemetry. Markers are enlarged. Earth’s map and spin remain illustrative.</p><button id="satelliteEarth" class="quiet-button">View Earth ↗</button><button id="satelliteDemo" class="quiet-button" hidden>Show historical demo</button><button id="satelliteRefresh" class="quiet-button">Check live status</button></div>
 </section><details class="control-group"><summary>Scale & appearance</summary><label for="sizeBoost">Planet visibility <span id="sizeBoostVal">1.0×</span></label><input id="sizeBoost" type="range" min="1" max="6" step="0.1" value="1" /><label for="sunScale">Sun display scale <span id="sunScaleVal">1.00×</span></label><input id="sunScale" type="range" min="0.05" max="1" step="0.01" value="1" /><div class="row"><label for="sunTrueScale">True Sun size ratio</label><input id="sunTrueScale" type="checkbox" checked /></div><div id="legend">Sizes use Earth as a baseline.<br>Distances and moon systems are compressed for exploration. Positions are simulated.</div><label for="quality">Render quality</label><select id="quality"><option value="auto">Auto · device adaptive</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="ultra">Ultra</option></select><label for="units">Measurement units</label><select id="units"><option value="astronomy">AU & Earth radii</option><option value="metric">Kilometers</option></select></details></aside>
 <aside id="inspector" class="empty" aria-label="Selected body"><div id="details" aria-live="polite"></div><button id="focusBtn" class="quiet-button">Recenter on this world ↗</button></aside><div class="hint"><kbd>Drag</kbd> orbit &nbsp; <kbd>Scroll</kbd> zoom &nbsp; <kbd>Space</kbd> pause</div><div class="scene-note">NOT TO DISTANCE SCALE / ALWAYS WORTH EXPLORING</div><nav class="dock" aria-label="Explore celestial bodies"><div class="dock-title"><span class="eyebrow">Choose a destination</span><strong>Worlds to discover</strong></div><div id="planetNav"></div></nav>
 <script>window.addEventListener('error',()=>{const el=document.getElementById('loading');if(!el.classList.contains('hidden'))el.innerHTML='<strong>Unable to open the observatory</strong><p>Please reload with a WebGL-capable browser and an internet connection.</p>';});</script>
@@ -33,7 +33,7 @@
       import * as THREE from 'three';
       import { advanceSimulationTime } from '/simulation.mjs';
       import { stepFocusCamera } from '/focus-camera.mjs';
-      import * as sat from 'https://cdn.jsdelivr.net/npm/satellite.js@5.0.0/+esm';
+      import { parseOmm, historicalDemo, satellitePosition } from '/satellite-data.mjs';
       import { OrbitControls } from 'https://unpkg.com/three@0.161.0/examples/jsm/controls/OrbitControls.js';
       import { EffectComposer } from 'https://unpkg.com/three@0.161.0/examples/jsm/postprocessing/EffectComposer.js';
       import { RenderPass } from 'https://unpkg.com/three@0.161.0/examples/jsm/postprocessing/RenderPass.js';
@@ -541,108 +541,73 @@
         moons.push({ ...m, host, mesh, radius: moonRadius, phase, orbitSpeed });
       }
 
-      // Earth satellite particle cloud from live TLE feeds.
+      // Satellite coordinates use a fixed equatorial frame, independent of spin.
       const satelliteGeo = new THREE.BufferGeometry();
-      const satelliteMat = new THREE.PointsMaterial({ color: 0x8fe8ff, size: 0.24, transparent: true, opacity: 0.92, depthWrite: false });
+      const markerCanvas = document.createElement('canvas');
+      markerCanvas.width = markerCanvas.height = 16;
+      const markerContext = markerCanvas.getContext('2d');
+      markerContext.fillStyle = '#fff'; markerContext.beginPath();
+      markerContext.arc(8, 8, 7, 0, Math.PI * 2); markerContext.fill();
+      const satelliteMat = new THREE.PointsMaterial({color:0x8fe8ff,size:3.5,sizeAttenuation:false,map:new THREE.CanvasTexture(markerCanvas),transparent:true,alphaTest:0.1,depthWrite:false});
       const satellitePoints = new THREE.Points(satelliteGeo, satelliteMat);
-      satellitePoints.visible = false;
-      const earthAnchor = planets.find((p) => p.name === 'Earth');
-      if (earthAnchor) earthAnchor.mesh.add(satellitePoints);
-      else scene.add(satellitePoints);
-
-      const satelliteState = { satrecs: [], positions: null, loaded: false, lastUpdateMs: 0 };
-      const SAT_VISUAL_SCALE = 1.0;
-      const SAT_MIN_KM = 160;
-      const SAT_MAX_KM = 60000; // keep well inside lunar distance for this model
-
-      const fallbackTLE = `ISS (ZARYA)
-1 25544U 98067A   24068.51243056  .00016717  00000+0  30058-3 0  9997
-2 25544  51.6411 328.9123 0004821  44.8856  81.6048 15.50083316442077
-HST
-1 20580U 90037B   24069.18363889  .00000835  00000+0  34765-4 0  9991
-2 20580  28.4692 241.9508 0002835 351.7538   8.3094 15.09218887414325
-NOAA 15
-1 25338U 98030A   24069.54847222  .00000068  00000+0  62082-4 0  9992
-2 25338  98.7399  68.1140 0011207  93.9260 266.3159 14.25903459353893`;
-
-      function parseTLEText(text) {
-        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-        const out = [];
-        for (let i = 0; i < lines.length - 2; i++) {
-          if (lines[i + 1].startsWith('1 ') && lines[i + 2].startsWith('2 ')) {
-            out.push({ TLE_LINE1: lines[i + 1], TLE_LINE2: lines[i + 2] });
-            i += 2;
-          }
-        }
-        return out;
-      }
+      satellitePoints.visible = false; satellitePoints.frustumCulled = false;
+      const satelliteFrame = new THREE.Group(); satelliteFrame.add(satellitePoints); scene.add(satelliteFrame);
+      const satelliteState = {entries:[],positions:null,mode:'idle',lastUpdateMs:0,loadedAt:0,demoStarted:0,validCount:0,summary:'',request:null};
+      const satelliteStatus = document.getElementById('satelliteStatus');
 
       async function loadSatellites() {
-        let list = [];
-        try {
-          const res = await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json');
-          if (res.ok) {
-            const data = await res.json();
-            list = data.filter(d => d?.TLE_LINE1 && d?.TLE_LINE2).slice(0, 4000);
-          }
-        } catch {}
-
-        if (!list.length) {
+        if (satelliteState.request) return satelliteState.request;
+        if (satelliteState.mode === 'live' && Date.now()-satelliteState.loadedAt < 7200000) return;
+        satelliteState.mode='loading'; satelliteGeo.setDrawRange(0,0); satelliteStatus.textContent='Loading CelesTrak orbital data…';
+        document.getElementById('satelliteDemo').hidden=true;
+        satelliteState.request=(async()=>{
           try {
-            const res2 = await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle');
-            if (res2.ok) {
-              const txt = await res2.text();
-              list = parseTLEText(txt).slice(0, 4000);
-            }
-          } catch {}
-        }
-
-        if (!list.length) list = parseTLEText(fallbackTLE);
-
-        satelliteState.satrecs = list.map(d => sat.twoline2satrec(d.TLE_LINE1, d.TLE_LINE2)).filter(Boolean);
-        satelliteState.positions = new Float32Array(satelliteState.satrecs.length * 3);
-        satelliteGeo.setAttribute('position', new THREE.BufferAttribute(satelliteState.positions, 3));
-        satelliteState.loaded = satelliteState.satrecs.length > 0;
-      }
-      loadSatellites();
-
-      function updateSatellites(nowMs) {
-        if (!satelliteState.loaded || !satelliteState.positions) return;
-        if (nowMs - satelliteState.lastUpdateMs < 250) return;
-        satelliteState.lastUpdateMs = nowMs;
-
-        const earth = planets.find((p) => p.name === 'Earth');
-        if (!earth) return;
-        const unitsPerKm = (earth.radius / EARTH_RADIUS_KM) * SAT_VISUAL_SCALE;
-        const when = new Date(nowMs);
-
-        for (let i = 0; i < satelliteState.satrecs.length; i++) {
-          const pv = sat.propagate(satelliteState.satrecs[i], when);
-          if (!pv?.position) continue;
-          const eci = pv.position;
-
-          let xKm = eci.x;
-          let yKm = eci.y;
-          let zKm = eci.z;
-          const rKm = Math.sqrt(xKm * xKm + yKm * yKm + zKm * zKm);
-          const altKm = rKm - EARTH_RADIUS_KM;
-          if (!Number.isFinite(altKm) || altKm < SAT_MIN_KM || altKm > SAT_MAX_KM) {
-            satelliteState.positions[i * 3 + 0] = 0;
-            satelliteState.positions[i * 3 + 1] = 0;
-            satelliteState.positions[i * 3 + 2] = 0;
-            continue;
+            const response=await fetch('/api/satellites',{signal:AbortSignal.timeout(16000)});
+            if (!response.ok) throw new Error('Satellite service unavailable (HTTP '+response.status+')');
+            const data=await response.json();
+            if (data.status !== 'ok') throw new Error(data.message || 'Live feed unavailable');
+            const entries=parseOmm(data.records);
+            if (!entries.length) throw new Error('No valid orbital elements from the last seven days');
+            setSatelliteEntries(entries,'live');
+            const epochs=entries.map(e=>e.epoch);
+            satelliteState.summary='CelesTrak · epochs '+new Date(Math.min(...epochs)).toISOString().slice(0,10)+' to '+new Date(Math.max(...epochs)).toISOString().slice(0,10)+'. Sample of '+data.total+' catalog records. Wall-clock time; independent of orbit-speed controls.';
+            satelliteState.loadedAt=Date.now();
+            updateSatellites(Date.now());
+          } catch(error) {
+            satelliteState.mode='unavailable';satelliteState.entries=[];satelliteGeo.setDrawRange(0,0);
+            satelliteStatus.textContent='Live data unavailable: '+error.message+'. No current satellites shown.';
+            document.getElementById('satelliteDemo').hidden=false;
           }
-
-          const clampedAlt = Math.min(SAT_MAX_KM, Math.max(SAT_MIN_KM, altKm));
-          const targetR = EARTH_RADIUS_KM + clampedAlt;
-          const s = targetR / rKm;
-          xKm *= s; yKm *= s; zKm *= s;
-
-          satelliteState.positions[i * 3 + 0] = xKm * unitsPerKm;
-          satelliteState.positions[i * 3 + 1] = zKm * unitsPerKm;
-          satelliteState.positions[i * 3 + 2] = yKm * unitsPerKm;
+        })();
+        try { await satelliteState.request; } finally { satelliteState.request=null; }
+      }
+      function setSatelliteEntries(entries,mode) {
+        satelliteState.entries=entries;satelliteState.mode=mode;satelliteState.lastUpdateMs=0;
+        satelliteMat.size=mode==='demo'?6:3.5;
+        satelliteState.positions=new Float32Array(entries.length*3);
+        satelliteGeo.setAttribute('position',new THREE.BufferAttribute(satelliteState.positions,3));
+        satelliteGeo.setDrawRange(0,0);
+      }
+      function updateSatellites(nowMs) {
+        const earth=planets.find(p=>p.name==='Earth');if(!earth)return;
+        earth.mesh.getWorldPosition(satelliteFrame.position);
+        satelliteFrame.rotation.z=THREE.MathUtils.degToRad(earth.axialTiltDeg || 0);
+        if(!satelliteState.positions || !['live','demo'].includes(satelliteState.mode))return;
+        if(nowMs-satelliteState.lastUpdateMs<250)return;
+        satelliteState.lastUpdateMs=nowMs;
+        const demoElapsed=satelliteState.mode==='demo' ? (nowMs-satelliteState.demoStarted)%86400000 : null;
+        let count=0;
+        for(const entry of satelliteState.entries){
+          const p=satellitePosition(entry,nowMs,earth.radius,demoElapsed);
+          if(!p)continue;
+          satelliteState.positions[count*3]=p.x;satelliteState.positions[count*3+1]=p.y;satelliteState.positions[count*3+2]=p.z;count++;
         }
-        satelliteGeo.attributes.position.needsUpdate = true;
+        satelliteState.validCount=count;
+        satelliteGeo.setDrawRange(0,count);satelliteGeo.attributes.position.needsUpdate=true;
+        const text=satelliteState.mode==='demo'
+          ? 'Historical demo · '+count+' markers (ISS, Hubble, NOAA 15). March 2024 elements, each played from its own epoch. Not current tracking.'
+          : count+' satellites plotted · '+satelliteState.summary;
+        if(satelliteStatus.textContent!==text)satelliteStatus.textContent=text;
       }
 
       const overlay = document.getElementById('overlay');
@@ -1044,8 +1009,18 @@ const controlsBtn=document.getElementById('controlsBtn');function setPanel(open)
           if (m.secondary) m.mesh.visible = moonsToggle.checked && e.target.checked;
         }
       });
+      function viewSatelliteEarth(){const earth=planets.find(p=>p.name==='Earth');if(earth){selectedPlanet=earth;updateDetails();focusOnPlanet(earth);}}
+      document.getElementById('satelliteEarth').addEventListener('click',viewSatelliteEarth);
+      document.getElementById('satelliteRefresh').addEventListener('click',()=>loadSatellites());
+      document.getElementById('satelliteDemo').addEventListener('click',()=>{
+        setSatelliteEntries(historicalDemo(),'demo');satelliteState.demoStarted=Date.now();
+        satelliteMat.size=6;updateSatellites(Date.now());viewSatelliteEarth();
+        document.getElementById('satelliteDemo').hidden=true;
+      });
       satellitesToggle.addEventListener('change', (e) => {
-        satellitePoints.visible = e.target.checked;
+        satellitePoints.visible=e.target.checked;
+        document.getElementById('satelliteTools').hidden=!e.target.checked;
+        if(e.target.checked){viewSatelliteEarth();if(satelliteState.mode!=='demo')loadSatellites();}
       });
 
 function setCinematicMode(enabled){document.body.classList.toggle('cinematic',enabled);bloomPass.strength=enabled?0.42:0.28;renderer.toneMappingExposure=enabled?1.12:1.08;controls.dampingFactor=enabled?0.08:0.05;}
@@ -1082,7 +1057,6 @@ let simulationTime=0;
       function animate() {
         const delta=Math.min(clock.getDelta(),0.05);const frameDelta=delta;simulationTime=advanceSimulationTime(simulationTime,delta,speedMul);const t=simulationTime;
         if (asteroidBelt.visible) updateAsteroidBelt(t);
-        if (satellitePoints.visible) updateSatellites(Date.now());
 
         sun.rotation.y += 0.108*delta*speedMul;
         sunCorona.rotation.y -= 0.048*delta*speedMul;
@@ -1109,6 +1083,7 @@ let simulationTime=0;
 
         }
 
+        if (satellitePoints.visible) updateSatellites(Date.now());
         const focusedName = focusTargetPlanet?.name || null;
         for (const m of moons) {
           const hostPos = new THREE.Vector3();
