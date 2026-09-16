@@ -26,7 +26,9 @@ A direct request to the active JSON feed during the audit returned HTTP 403. Thi
 
 `node --test tests/*.test.mjs` passes 16 tests, including actual OMM propagation, stale/malformed record rejection, six-digit IDs, historical epochs, failure exclusion, successful API sampling/cache, explicit HTTP 403 handling without retries, malformed responses, and method restrictions. Existing simulation/camera tests also pass.
 
-Offline browser checks verify automatic Earth focus, a visible unavailable state, and the opt-in historical demo reporting three propagated markers, without console warnings or errors. Production feed availability must be checked after deployment.
+Offline browser checks verify automatic Earth focus, a visible unavailable state, and the opt-in historical demo reporting three propagated markers, without console warnings or errors.
+
+Production verification succeeded after deployment `3a8d525`: the Vercel gateway reached CelesTrak and the live app plotted **3,992 satellites** from a sample of **16,559 catalog records**. The displayed epoch range was September 10–21, 2026. A screenshot confirmed the marker cloud around Earth, and toggling the layer off/on restored it from the loaded data. No browser console warnings or errors were captured. The earlier direct-request HTTP 403 did not occur on the Vercel request; future upstream failures remain possible and are now reported visibly.
 
 ## Sources and maintenance
 

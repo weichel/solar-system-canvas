@@ -110,6 +110,8 @@ Choose and implement one spacecraft mission using the same tour/timeline foundat
 - Framework preset: Other. Static output directory: `public`, explicitly configured in `vercel.json`.
 - Current stack: static HTML/CSS and browser ES modules, Three.js 0.161.0 imported from a CDN, with a satellite.js import. No package install/build step is currently needed.
 
+Satellite audit follow-up: satellite.js 6.0.1 is now vendored locally, and `/api/satellites` is a cached Node.js Vercel function that serves CelesTrak OMM data. See `SATELLITE_AUDIT.md`. Use `node scripts/serve.mjs` for local previews including the API, or add `--offline` to test explicit failure/demo states without querying the provider.
+
 Key files:
 
 | File | Purpose |
