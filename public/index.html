@@ -32,6 +32,7 @@
     <script type="module">
       import * as THREE from 'three';
       import { advanceSimulationTime } from '/simulation.mjs';
+      import { stepFocusCamera } from '/focus-camera.mjs';
       import * as sat from 'https://cdn.jsdelivr.net/npm/satellite.js@5.0.0/+esm';
       import { OrbitControls } from 'https://unpkg.com/three@0.161.0/examples/jsm/controls/OrbitControls.js';
       import { EffectComposer } from 'https://unpkg.com/three@0.161.0/examples/jsm/postprocessing/EffectComposer.js';
@@ -735,10 +736,20 @@ for(const p of planets){const button=document.createElement('button');button.cla
         lastFocusWorldPos = new THREE.Vector3();
         planet.mesh.getWorldPosition(lastFocusWorldPos);
 
+        // Retarget immediately; only the viewing offset should ease in.
+        // Flush residual orbit damping so a previous drag cannot shift the aim.
+        const damping = controls.enableDamping;
+        controls.enableDamping = false;
+        controls.update();
+        controls.target.copy(lastFocusWorldPos);
+        controls.update();
+        controls.enableDamping = damping;
+
         // Approach the sunlit side, slightly above the orbital plane.
         const dir = lastFocusWorldPos.clone().negate().normalize();
         dir.add(new THREE.Vector3(0, 1, 0).applyQuaternion(planet.mesh.quaternion).multiplyScalar(0.85)); dir.normalize();
-        flightOffset = dir.multiplyScalar(Math.max(4.0, (planet.radius || 2) * 7.0));
+        const framingScale = window.innerWidth <= 700 ? 9.5 : 7.0;
+        flightOffset = dir.multiplyScalar(Math.max(4.0, (planet.radius || 2) * framingScale));
         if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
           controls.target.copy(lastFocusWorldPos);
           camera.position.copy(lastFocusWorldPos).add(flightOffset); flightOffset = null;
@@ -1095,28 +1106,7 @@ let simulationTime=0;
           p.mesh.position.copy(orbitPosition(p.orbitRadius, p.eccentricity || 0, theta, p.inclinationDeg || 0, p.nodeDeg || 0));
           p.mesh.rotateY((p.spinSpeed || 0.0025)*delta*60*speedMul);
 
-          const worldPos = new THREE.Vector3();
-          p.mesh.getWorldPosition(worldPos);
 
-          // Place label above planet in world space (Y-up axis), then project to screen.
-          const labelWorldPos = worldPos.clone().add(new THREE.Vector3(0, Math.max(1.2, p.radius * 1.6), 0));
-          const projected = labelWorldPos.clone().project(camera);
-          const x = (projected.x * 0.5 + 0.5) * window.innerWidth;
-          const y = (-projected.y * 0.5 + 0.5) * window.innerHeight;
-          const visible = projected.z > -1 && projected.z < 1 && x > 12 && x < window.innerWidth-12 && y > 88 && y < window.innerHeight-120 && !(y < 235 && x < 710);
-
-          const lbl = labelEls.get(p.name);
-          if (lbl) {
-            lbl.style.display = visible ? 'block' : 'none';
-            lbl.style.left = `${x}px`;
-            lbl.style.top = `${y}px`;
-          }
-
-          if (selectedPlanet && selectedPlanet.name === p.name) {
-            popupEl.style.display = visible ? 'block' : 'none';
-            popupEl.style.left = `${x}px`;
-            popupEl.style.top = `${y - 26}px`;
-          }
         }
 
         const focusedName = focusTargetPlanet?.name || null;
@@ -1134,21 +1124,7 @@ let simulationTime=0;
           m.mesh.position.copy(hostPos).add(off);
           m.mesh.rotation.y += 0.6*delta*speedMul;
 
-          const lbl = moonLabelEls.get(m.name);
-          if (!lbl) continue;
-          const shouldShow = moonsToggle.checked && (!m.secondary || secondaryMoonsToggle.checked) && focusedName && (m.host.name === focusedName || m.name === focusedName);
-          if (!shouldShow) {
-            lbl.style.display = 'none';
-            continue;
-          }
 
-          const lp = m.mesh.position.clone().add(new THREE.Vector3(0, Math.max(0.5, m.radius * 2.2), 0)).project(camera);
-          const lx = (lp.x * 0.5 + 0.5) * window.innerWidth;
-          const ly = (-lp.y * 0.5 + 0.5) * window.innerHeight;
-          const visible = lp.z < 1;
-          lbl.style.display = visible ? 'block' : 'none';
-          lbl.style.left = `${lx}px`;
-          lbl.style.top = `${ly}px`;
         }
 
         if (focusTargetPlanet && (focusLocked || focusStrength > 0.0001)) {
@@ -1158,13 +1134,13 @@ let simulationTime=0;
           if (focusLocked) {
             // Keep camera orbit centered on the selected moving planet.
             if (!lastFocusWorldPos) lastFocusWorldPos = wp.clone();
-            const delta = wp.clone().sub(lastFocusWorldPos);
+            const next = stepFocusCamera(camera.position, lastFocusWorldPos, wp, flightOffset, frameDelta);
+            camera.position.set(next.position.x, next.position.y, next.position.z);
+            controls.target.copy(wp);
             if (flightOffset) {
-              const blend = 1 - Math.exp(-5 * frameDelta);
               const destination = wp.clone().add(flightOffset);
-              camera.position.lerp(destination, blend); controls.target.lerp(wp, blend);
               if (camera.position.distanceTo(destination) < Math.max(0.02, focusTargetPlanet.radius * 0.02)) flightOffset = null;
-            } else { camera.position.add(delta); controls.target.copy(wp); }
+            }
             lastFocusWorldPos.copy(wp);
 
             // Prevent clipping into the planet while still allowing very close zoom.
@@ -1208,6 +1184,49 @@ let simulationTime=0;
         }
 
         controls.update();
+        camera.updateMatrixWorld();
+        // Project labels only after the camera has followed this frame's bodies.
+        for (const p of planets) {
+          const worldPos = new THREE.Vector3();
+          p.mesh.getWorldPosition(worldPos);
+
+          // Place label above planet in world space (Y-up axis), then project to screen.
+          const labelWorldPos = worldPos.clone().add(new THREE.Vector3(0, Math.max(1.2, p.radius * 1.6), 0));
+          const projected = labelWorldPos.clone().project(camera);
+          const x = (projected.x * 0.5 + 0.5) * window.innerWidth;
+          const y = (-projected.y * 0.5 + 0.5) * window.innerHeight;
+          const visible = projected.z > -1 && projected.z < 1 && x > 12 && x < window.innerWidth-12 && y > 88 && y < window.innerHeight-120 && !(y < 235 && x < 710);
+
+          const lbl = labelEls.get(p.name);
+          if (lbl) {
+            lbl.style.display = visible ? 'block' : 'none';
+            lbl.style.left = `${x}px`;
+            lbl.style.top = `${y}px`;
+          }
+
+          if (selectedPlanet && selectedPlanet.name === p.name) {
+            popupEl.style.display = visible ? 'block' : 'none';
+            popupEl.style.left = `${x}px`;
+            popupEl.style.top = `${y - 26}px`;
+          }
+        }
+        for (const m of moons) {
+          const lbl = moonLabelEls.get(m.name);
+          if (!lbl) continue;
+          const shouldShow = moonsToggle.checked && (!m.secondary || secondaryMoonsToggle.checked) && focusedName && (m.host.name === focusedName || m.name === focusedName);
+          if (!shouldShow) {
+            lbl.style.display = 'none';
+            continue;
+          }
+
+          const lp = m.mesh.position.clone().add(new THREE.Vector3(0, Math.max(0.5, m.radius * 2.2), 0)).project(camera);
+          const lx = (lp.x * 0.5 + 0.5) * window.innerWidth;
+          const ly = (-lp.y * 0.5 + 0.5) * window.innerHeight;
+          const visible = lp.z < 1;
+          lbl.style.display = visible ? 'block' : 'none';
+          lbl.style.left = `${lx}px`;
+          lbl.style.top = `${ly}px`;
+        }
         composer.render(delta);
         requestAnimationFrame(animate);
       }
